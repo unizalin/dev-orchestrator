@@ -81,6 +81,7 @@ def main() -> int:
         "scripts/export_chatgpt.sh",
         "scripts/dev-orchestrator-usage",
         "scripts/dev_orchestrator_usage/cli.py",
+        "scripts/dev_orchestrator_usage/summary.py",
     ]
     missing = [path for path in required_files if not (root / path).is_file()]
     require(not missing, f"missing required files: {missing}")

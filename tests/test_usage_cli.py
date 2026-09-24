@@ -1,7 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
-import contextlib, io, os
+import contextlib, io, json, os
 from dataclasses import dataclass
 
 @dataclass
@@ -33,8 +33,58 @@ class UsageCliTests(TestCase):
         out=io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(cli.main(['--help']), 0)
-        for name in ('setup','accounts','current','all','task-start','checkpoint','finish','run-agy'):
+        for name in ('setup','accounts','current','all','summary','task-start','checkpoint','finish','run-agy'):
             self.assertIn(name, out.getvalue())
+
+    def test_summary_json_contract_and_diagnostics(self):
+        from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage
+        from scripts.dev_orchestrator_usage.project import resolve_project
+        from scripts.dev_orchestrator_usage.state import Ledger
+        from datetime import datetime, timezone
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp); run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            project = resolve_project(Path.cwd()); now = datetime.now(timezone.utc)
+            event = UsageEvent.new(started_at=now, completed_at=now, project_key=project.key,
+                project_label=project.label, account_alias='personal', task_id='t', thread_id=None,
+                session_id='s', conversation_id=None, role='implement', provider='x', model='m',
+                source='x', precision='exact', usage=TokenUsage(1, 0, 0, 1, 0, 12))
+            Ledger(root).append(event)
+            (root / 'events' / 'bad.jsonl').write_text('{bad json}\n', encoding='utf-8')
+            result = run_cli('summary', '--scope', 'all_projects', '--window', '5h', state_dir=root)
+            self.assertEqual(result.returncode, 0); self.assertEqual(result.stderr, '')
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload['schema_version'], 1)
+            self.assertEqual(payload['scope'], 'all_projects')
+            self.assertEqual(payload['all_projects_window_total'], 12)
+            self.assertEqual(payload['diagnostics']['malformed_event_count'], 1)
+            self.assertNotIn('prompt', result.stdout.lower()); self.assertNotIn('response', result.stdout.lower())
+
+    def test_summary_disabled_and_invalid_arguments(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(run_cli('summary', state_dir=root).returncode, 3)
+            run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            self.assertEqual(run_cli('summary', '--window', 'bad', state_dir=root).returncode, 2)
+            self.assertEqual(run_cli('summary', '--scope', 'bad', state_dir=root).returncode, 2)
+
+    def test_summary_account_filter_does_not_change_active_account(self):
+        from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage
+        from scripts.dev_orchestrator_usage.project import resolve_project
+        from scripts.dev_orchestrator_usage.state import AccountRegistry, Ledger
+        from datetime import datetime, timezone
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp); run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            project = resolve_project(Path.cwd()); now = datetime.now(timezone.utc)
+            for alias, total in (('personal', 3), ('work', 5)):
+                Ledger(root).append(UsageEvent.new(started_at=now, completed_at=now, project_key=project.key,
+                    project_label=project.label, account_alias=alias, task_id=alias, thread_id=None,
+                    session_id=alias, conversation_id=None, role='r', provider='x', model='m', source='x',
+                    precision='exact', usage=TokenUsage(1, 0, 0, 1, 0, total)))
+            payload = json.loads(run_cli('summary', '--scope', 'all_projects', '--account', 'work', state_dir=root).stdout)
+            self.assertEqual(payload['selected_scope_window_total'], 5)
+            self.assertEqual(payload['all_projects_window_total'], 8)
+            self.assertEqual(payload['active_account'], 'personal')
+            self.assertEqual(AccountRegistry(root).active(), 'personal')
 
     def test_run_agy_uses_context_and_appends_event(self):
         from scripts.dev_orchestrator_usage import cli

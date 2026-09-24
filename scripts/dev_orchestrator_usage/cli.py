@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .aggregate import parse_window, render_all_projects_report, render_project_report
+from .summary import build_summary
 from .codex import (TaskState, checkpoint_task, find_session_file, finish_task,
                     read_snapshot, start_task)
 from .external import ExternalCommandError, run_agy
@@ -142,6 +143,36 @@ def _report(args, all_projects: bool) -> int:
     return EXIT_OK
 
 
+def _summary(args) -> int:
+    if not _require_enabled(args):
+        return EXIT_TRACKING_DISABLED
+    try:
+        parse_window(args.window)
+        root = _root(args)
+        registry = AccountRegistry(root)
+        ledger = Ledger(root)
+        events = list(ledger.events())
+        project_override = resolve_project(args.project_path) if args.project_path else None
+        payload = build_summary(
+            events,
+            window_name=args.window,
+            scope=args.scope,
+            accounts=registry.accounts(),
+            active_account=registry.active(),
+            selected_account=args.account,
+            project_override=project_override,
+            malformed_event_count=len(ledger.diagnostics),
+        )
+        print(json.dumps(payload, separators=(",", ":"), sort_keys=True))
+        return EXIT_OK
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_USAGE_ERROR
+    except OSError as exc:
+        print(f"summary: {exc}", file=sys.stderr)
+        return EXIT_DATA_UNAVAILABLE
+
+
 def _load_task(root: Path, task_id: str) -> TaskState:
     path = root / "active" / f"{task_id}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -213,6 +244,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("accounts"); _add_common(p); asp = p.add_subparsers(dest="account_action"); sp = asp.add_parser("set"); sp.add_argument("alias"); _add_common(sp)
     for name in ("current", "all"):
         p = sub.add_parser(name); p.add_argument("--window", default="5h"); p.add_argument("--account"); p.add_argument("--no-quota", action="store_true"); _add_common(p)
+    p = sub.add_parser("summary"); p.add_argument("--scope", choices=("current_project", "all_projects"), default="current_project"); p.add_argument("--window", default="5h"); p.add_argument("--account"); p.add_argument("--project-path", type=Path); _add_common(p)
     for name in ("task-start", "checkpoint", "finish"):
         p = sub.add_parser(name); p.add_argument("--task-id"); p.add_argument("--role", default="implement"); _add_common(p)
     p = sub.add_parser("run-agy"); p.add_argument("--role", required=True); p.add_argument("--model", required=True); p.add_argument("--effort", default="high"); p.add_argument("--prompt-file", required=True); _add_common(p)
@@ -231,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "accounts": return _accounts(args)
     if args.command == "current": return _report(args, False)
     if args.command == "all": return _report(args, True)
+    if args.command == "summary": return _summary(args)
     if args.command in ("task-start", "checkpoint", "finish"): return _lifecycle(args, args.command)
     if args.command == "run-agy": return _run_agy(args)
     return EXIT_USAGE_ERROR
