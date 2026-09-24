@@ -41,6 +41,33 @@ EVENTS = [
 
 
 class UsageSummaryTests(unittest.TestCase):
+    def test_unselected_account_scope_includes_all_accounts_even_when_active_account_is_set(self):
+        events = EVENTS + [
+            event_at(
+                NOW - timedelta(hours=3),
+                project_key="new",
+                project_label="Newest",
+                account="personal",
+                total=25,
+            )
+        ]
+        summary = build_summary(
+            events,
+            window_name="5h",
+            scope="current_project",
+            accounts=["personal", "work"],
+            active_account="work",
+            now=NOW,
+        )
+
+        self.assertIsNone(summary["selected_account"])
+        self.assertEqual(summary["selected_scope_window_total"], 85)
+        self.assertEqual(summary["current_project_cumulative_total"], 115)
+        self.assertEqual(
+            {(row["account_alias"], row["usage"]["total_tokens"]) for row in summary["rows"]},
+            {("personal", 25), ("work", 60)},
+        )
+
     def test_builds_authoritative_summary(self):
         summary = build_summary(
             EVENTS,

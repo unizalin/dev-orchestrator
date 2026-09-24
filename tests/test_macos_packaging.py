@@ -77,6 +77,20 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertIn('codesign --force --deep --sign - "$app_path"', script)
         self.assertIn('codesign --verify --deep --strict "$app_path"', script)
 
+    def test_build_script_builds_before_querying_binary_path(self):
+        """A fresh Swift package needs a real build before --show-bin-path."""
+        lines = self._executable_lines(BUILD_SCRIPT)
+
+        build = self._line_index(
+            lines,
+            r'^swift build --package-path "\$package_root" -c "\$configuration"$',
+        )
+        show_bin_path = self._line_index(
+            lines,
+            r'^bin_dir="\$\(swift build --package-path "\$package_root" -c "\$configuration" --show-bin-path\)"$',
+        )
+        self.assertLess(build, show_bin_path)
+
     def test_build_script_validates_exact_app_destination_before_replacement(self):
         lines = self._executable_lines(BUILD_SCRIPT)
         script = "\n".join(lines)

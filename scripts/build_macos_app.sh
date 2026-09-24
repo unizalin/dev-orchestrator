@@ -37,6 +37,7 @@ for required_path in "$info_plist" "$usage_wrapper" "$usage_module"; do
     fi
 done
 
+swift build --package-path "$package_root" -c "$configuration"
 bin_dir="$(swift build --package-path "$package_root" -c "$configuration" --show-bin-path)"
 binary_path="$bin_dir/DevOrchestratorBar"
 if [[ ! -x "$binary_path" ]]; then

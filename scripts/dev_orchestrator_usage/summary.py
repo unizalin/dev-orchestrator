@@ -75,7 +75,9 @@ def build_summary(
     global_events = filter_events(all_events, now=current_time, window=window)
     global_rows = group_events(global_events)
 
-    account_filter = selected_account if selected_account is not None else active_account
+    # A missing selection means all accounts. The active account is reported as
+    # metadata only; it must not become an implicit historical filter.
+    account_filter = selected_account
     selected_events = global_events
     if account_filter is not None:
         selected_events = [event for event in selected_events if event.account_alias == account_filter]

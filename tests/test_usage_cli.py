@@ -128,6 +128,59 @@ class UsageCliTests(TestCase):
             self.assertEqual(payload['active_account'], 'personal')
             self.assertEqual(AccountRegistry(root).active(), 'personal')
 
+    def test_summary_without_account_filter_includes_all_accounts(self):
+        from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage
+        from scripts.dev_orchestrator_usage.project import resolve_project
+        from scripts.dev_orchestrator_usage.state import Ledger
+        from datetime import datetime, timezone
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            project = resolve_project(Path.cwd())
+            now = datetime.now(timezone.utc)
+            for alias, total in (('personal', 3), ('work', 5)):
+                Ledger(root).append(UsageEvent.new(
+                    started_at=now,
+                    completed_at=now,
+                    project_key=project.key,
+                    project_label=project.label,
+                    account_alias=alias,
+                    task_id=alias,
+                    thread_id=None,
+                    session_id=alias,
+                    conversation_id=None,
+                    role='implement',
+                    provider='openai',
+                    model='luna',
+                    source='test',
+                    precision='exact',
+                    usage=TokenUsage(1, 0, 0, 1, 0, total),
+                ))
+
+            all_accounts = json.loads(run_cli(
+                'summary', '--scope', 'current_project', state_dir=root
+            ).stdout)
+            self.assertEqual(all_accounts['selected_account'], None)
+            self.assertEqual(all_accounts['selected_scope_window_total'], 8)
+            self.assertEqual(all_accounts['current_project_cumulative_total'], 8)
+            self.assertEqual(
+                {(row['account_alias'], row['usage']['total_tokens']) for row in all_accounts['rows']},
+                {('personal', 3), ('work', 5)},
+            )
+
+            work_only = json.loads(run_cli(
+                'summary', '--scope', 'current_project', '--account', 'work', state_dir=root
+            ).stdout)
+            self.assertEqual(work_only['selected_account'], 'work')
+            self.assertEqual(work_only['selected_scope_window_total'], 5)
+            self.assertEqual(work_only['current_project_cumulative_total'], 5)
+            self.assertEqual(work_only['all_projects_window_total'], 8)
+            self.assertEqual(
+                {(row['account_alias'], row['usage']['total_tokens']) for row in work_only['rows']},
+                {('work', 5)},
+            )
+
     def test_run_agy_uses_context_and_appends_event(self):
         from scripts.dev_orchestrator_usage import cli
         from scripts.dev_orchestrator_usage.state import AccountRegistry, Ledger
