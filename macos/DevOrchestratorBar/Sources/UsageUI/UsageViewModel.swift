@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import UsageClient
 
-public enum LoadState: Equatable {
+public enum LoadState: Equatable, Sendable {
     case idle
     case loading
     case loaded
@@ -175,9 +175,12 @@ public final class UsageViewModel: ObservableObject {
     }
 
     public var isLoading: Bool { state == .loading }
-    public var hasSnapshot: Bool { snapshot != nil }
+    /// Whether the current controls have a matching snapshot suitable for
+    /// display. The raw snapshot may still contain the previous selection so
+    /// it must not drive popover content decisions.
+    public var hasSnapshot: Bool { displaySnapshot != nil }
     public var hasRows: Bool { !rows.isEmpty }
-    public var isEmpty: Bool { snapshot != nil && rows.isEmpty }
+    public var isEmpty: Bool { displaySnapshot != nil && rows.isEmpty }
     public var isEmptyState: Bool { isEmpty }
     public var hasNoData: Bool { isEmpty }
     public var showsEmptyState: Bool { isEmpty && state != .loading }

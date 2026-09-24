@@ -6,9 +6,27 @@ import UsageClient
 /// not rendered without launching a SwiftUI scene.
 public struct Presentation: Equatable, Sendable {
     public let snapshot: UsageSnapshot?
+    public let loadState: LoadState
+    public let hasStoredSnapshot: Bool
 
-    public init(snapshot: UsageSnapshot?) {
+    public init(
+        snapshot: UsageSnapshot?,
+        loadState: LoadState = .idle,
+        hasStoredSnapshot: Bool = false
+    ) {
         self.snapshot = snapshot
+        self.loadState = loadState
+        self.hasStoredSnapshot = hasStoredSnapshot
+    }
+
+    public var contentState: UsagePopoverContentState {
+        if snapshot == nil {
+            if loadState == .loading && !hasStoredSnapshot {
+                return .loading
+            }
+            return .unavailable
+        }
+        return showsEmptyState ? .empty : .content
     }
 
     public var showsInput: Bool { showsDetail("input_tokens", at: \.inputTokens) }
@@ -47,6 +65,13 @@ public struct Presentation: Equatable, Sendable {
         else { return false }
         return snapshot.rows.contains { $0.usage[keyPath: keyPath] != nil }
     }
+}
+
+public enum UsagePopoverContentState: Equatable, Sendable {
+    case loading
+    case unavailable
+    case empty
+    case content
 }
 
 /// Pure menu-bar label rules keep the nil-title accessibility behavior
@@ -122,18 +147,12 @@ public struct UsagePopoverView: View {
                 Text("全部專案").tag(ProjectScope.allProjects)
             }
             .pickerStyle(.segmented)
-            .onChange(of: model.scope) { _ in
-                Task { await model.refresh() }
-            }
 
             Picker("帳號", selection: $model.selectedAccount) {
                 Text("全部帳號").tag(String?.none)
                 ForEach(model.accounts, id: \.self) { account in
                     Text(account).tag(Optional(account))
                 }
-            }
-            .onChange(of: model.selectedAccount) { _ in
-                Task { await model.refresh() }
             }
 
             Toggle("自動更新（30 秒）", isOn: $model.autoRefresh)
@@ -146,17 +165,21 @@ public struct UsagePopoverView: View {
 
     @ViewBuilder
     private var content: some View {
-        let presentation = Presentation(snapshot: model.displaySnapshot)
-        if model.isLoading && !model.hasSnapshot {
+        let presentation = Presentation(
+            snapshot: model.displaySnapshot,
+            loadState: model.state,
+            hasStoredSnapshot: model.snapshot != nil
+        )
+        if presentation.contentState == .loading {
             ProgressView("載入追蹤用量…")
                 .frame(maxWidth: .infinity, alignment: .center)
-        } else if presentation.showsEmptyState {
+        } else if presentation.contentState == .empty {
             unavailable(
                 title: "尚無追蹤用量",
                 icon: "tray",
                 description: "未找到已記錄的任務用量；完成下一個編排任務後會顯示在這裡。"
             )
-        } else if !model.hasSnapshot {
+        } else if presentation.contentState == .unavailable {
             unavailable(
                 title: "無法載入追蹤用量",
                 icon: "exclamationmark.triangle",

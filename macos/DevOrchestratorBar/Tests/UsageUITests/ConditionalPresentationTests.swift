@@ -101,6 +101,15 @@ final class ConditionalPresentationTests: XCTestCase {
         XCTAssertFalse(Presentation(snapshot: snapshot()).showsCumulative)
     }
 
+    func testFailedLoadWithoutCurrentSnapshotShowsUnavailableState() {
+        let presentation = Presentation(
+            snapshot: nil,
+            loadState: .failed("helper unavailable"),
+            hasStoredSnapshot: true
+        )
+        XCTAssertEqual(presentation.contentState, .unavailable)
+    }
+
     func testMenuBarLabelUsesAccessibleIconWhenTitleIsMissing() {
         let presentation = MenuBarLabelPresentation(title: nil)
         XCTAssertFalse(presentation.showsTitle)

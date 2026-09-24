@@ -136,6 +136,27 @@ final class UsageViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testSelectionChangeFailureClearsDisplayAndKeepsGlobalMenuTotal() async {
+        let first = snapshot(allProjectsTotal: 321, selectedTotal: 10)
+        let loader = QueuedLoader([.success(first), .failure(SampleError.failed)])
+        let model = UsageViewModel(loader: loader)
+
+        await model.refresh()
+        model.scope = .allProjects
+        await model.refresh()
+
+        XCTAssertNil(model.displaySnapshot)
+        XCTAssertNil(model.selectedScopeWindowTotal)
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertEqual(model.state, .failed(SampleError.failed.localizedDescription))
+        XCTAssertEqual(model.menuBarTitle, compactTokens(first.allProjectsWindowTotal))
+        XCTAssertEqual(
+            Presentation(snapshot: model.displaySnapshot, loadState: model.state, hasStoredSnapshot: model.snapshot != nil).contentState,
+            .unavailable
+        )
+    }
+
+    @MainActor
     func testSelectionChangeDuringRefreshCoalescesLatestRequest() async {
         let first = snapshot(selectedTotal: 10, scope: .currentProject)
         let second = snapshot(selectedTotal: 20, scope: .allProjects, selectedAccount: "work")
