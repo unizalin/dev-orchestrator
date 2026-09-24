@@ -62,10 +62,52 @@ class UsageCliTests(TestCase):
     def test_summary_disabled_and_invalid_arguments(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.assertEqual(run_cli('summary', state_dir=root).returncode, 3)
+            disabled = run_cli('summary', state_dir=root)
+            self.assertEqual(disabled.returncode, 3)
+            self.assertIn('tracking is not enabled', disabled.stderr)
             run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
-            self.assertEqual(run_cli('summary', '--window', 'bad', state_dir=root).returncode, 2)
-            self.assertEqual(run_cli('summary', '--scope', 'bad', state_dir=root).returncode, 2)
+            invalid_window = run_cli('summary', '--window', 'bad', state_dir=root)
+            self.assertEqual(invalid_window.returncode, 2)
+            self.assertIn('window', invalid_window.stderr.lower())
+            invalid_scope = run_cli('summary', '--scope', 'bad', state_dir=root)
+            self.assertEqual(invalid_scope.returncode, 2)
+            self.assertIn('invalid choice', invalid_scope.stderr.lower())
+
+    def test_summary_project_path_override_changes_current_project_only(self):
+        from datetime import datetime, timezone
+        from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage
+        from scripts.dev_orchestrator_usage.project import resolve_project
+        from scripts.dev_orchestrator_usage.state import Ledger
+
+        with TemporaryDirectory() as tmp, TemporaryDirectory() as override_dir:
+            root = Path(tmp)
+            override = Path(override_dir)
+            run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            current = resolve_project(Path.cwd())
+            overridden = resolve_project(override)
+            now = datetime.now(timezone.utc)
+
+            def event(project, total):
+                return UsageEvent.new(
+                    started_at=now, completed_at=now, project_key=project.key,
+                    project_label=project.label, account_alias='personal',
+                    task_id=project.label, thread_id=None, session_id=project.label,
+                    conversation_id=None, role='r', provider='x', model='m',
+                    source='x', precision='exact',
+                    usage=TokenUsage(1, 0, 0, 1, 0, total),
+                )
+
+            Ledger(root).append(event(current, 3))
+            Ledger(root).append(event(overridden, 7))
+            result = run_cli(
+                'summary', '--scope', 'current_project', '--window', '5h',
+                '--project-path', str(override), state_dir=root,
+            )
+            self.assertEqual(result.returncode, 0)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload['current_project']['key'], overridden.key)
+            self.assertEqual(payload['selected_scope_window_total'], 7)
+            self.assertEqual(payload['all_projects_window_total'], 10)
 
     def test_summary_account_filter_does_not_change_active_account(self):
         from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage
