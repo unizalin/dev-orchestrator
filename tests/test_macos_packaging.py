@@ -127,6 +127,20 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertIn('"$stage_base" =~ ^\\.DevOrchestratorBar\\.install\\.[A-Za-z0-9]+$', script)
         self.assertIn('realpath "$stage_dir"', script)
 
+    def test_install_cleanup_requires_resolved_stage_parent_guard(self):
+        lines = self._executable_lines(INSTALL_SCRIPT)
+        script = "\n".join(lines)
+
+        self.assertIn('stage_real_parent="$(dirname "$stage_real" 2>/dev/null || true)"', script)
+        self.assertIn('"$stage_real_parent" == "$stage_parent"', script)
+        self.assertIn('"$stage_real" != "/"', script)
+        self.assertIn('"$stage_real" != "$app_dir"', script)
+        guard = self._line_index(lines, r'^&& "\$stage_real_parent" == "\$stage_parent"')
+        remove = self._line_index(lines, r'^rm -rf -- "\$stage_real"$')
+        warn = self._line_index(lines, r'^printf .+unsafe staging path')
+        self.assertLess(guard, remove)
+        self.assertLess(remove, warn)
+
     def test_install_script_trap_restores_backup_after_replacement_failure(self):
         lines = self._executable_lines(INSTALL_SCRIPT)
         script = "\n".join(lines)

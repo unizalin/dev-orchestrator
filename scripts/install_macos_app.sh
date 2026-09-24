@@ -30,15 +30,20 @@ backup_created=0
 cleanup_staging() {
     [[ -n "$stage_dir" ]] || return 0
 
-    local stage_real stage_parent stage_base
+    local stage_real stage_parent stage_real_parent stage_base
     stage_real="$(realpath "$stage_dir" 2>/dev/null || true)"
     stage_parent="$(realpath "$app_dir" 2>/dev/null || true)"
+    stage_real_parent="$(dirname "$stage_real" 2>/dev/null || true)"
     stage_base="$(basename "$stage_real" 2>/dev/null || true)"
     if [[ -n "$stage_real" && -n "$stage_parent" \
-        && "$stage_parent" == "$(realpath "$app_dir" 2>/dev/null || true)" \
+        && "$stage_real_parent" == "$stage_parent" \
         && "$stage_real" != "$stage_parent" \
+        && "$stage_real" != "/" \
+        && "$stage_real" != "$app_dir" \
         && "$stage_base" =~ ^\.DevOrchestratorBar\.install\.[A-Za-z0-9]+$ ]]; then
         rm -rf -- "$stage_real"
+    else
+        printf 'warning: refusing to remove unsafe staging path: %s\n' "$stage_real" >&2
     fi
 }
 
