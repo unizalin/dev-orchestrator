@@ -16,13 +16,13 @@ public func compactTokens(_ value: Int?) -> String? {
     ]
 
     for scale in scales where value >= scale.divisor {
-        // The product's compact formatter rounds a half tenth away from zero
-        // (so 1,250 becomes 1.3K), rather than relying on binary floating
-        // point formatting's tie-breaking behavior.
-        if scale.suffix == "K" && value >= 999_950 {
+        // Round the displayed tenth with integer half-up arithmetic. This
+        // mirrors the Python formatter without binary floating point or
+        // banker's rounding (so 1,250 becomes 1.3K).
+        let tenths = (value * 10 + scale.divisor / 2) / scale.divisor
+        if scale.suffix == "K" && tenths >= 10_000 {
             return "1M"
         }
-        let tenths = Int((Double(value) * 10.0 / Double(scale.divisor)).rounded(.toNearestOrAwayFromZero))
         let whole = tenths / 10
         let remainder = tenths % 10
         return remainder == 0

@@ -75,6 +75,23 @@ class UsageAggregationTests(unittest.TestCase):
         from scripts.dev_orchestrator_usage.aggregate import _fmt
         self.assertNotIn("1000K", _fmt(999_950))
 
+    def test_compact_rounding_uses_half_up_at_half_tenth_boundaries(self):
+        from scripts.dev_orchestrator_usage.aggregate import _fmt
+        self.assertEqual(_fmt(1_249), "1.2K")
+        self.assertEqual(_fmt(1_250), "1.3K")
+        self.assertEqual(_fmt(1_251), "1.3K")
+        self.assertEqual(_fmt(999_949), "999.9K")
+        self.assertEqual(_fmt(999_950), "1M")
+        self.assertEqual(_fmt(999_951), "1M")
+
+    def test_grouping_identity_keeps_same_display_fields_with_distinct_project_keys(self):
+        rows = group_events([
+            event_at(project_key="project-a", project_label="Shared", total=10),
+            event_at(project_key="project-b", project_label="Shared", total=20),
+        ])
+        self.assertEqual([row.project_key for row in rows], ["project-a", "project-b"])
+        self.assertEqual([row.total_tokens for row in rows], [10, 20])
+
     def test_all_projects_uses_one_now_snapshot(self):
         with mock.patch("scripts.dev_orchestrator_usage.aggregate.datetime") as dt:
             dt.now.return_value = NOW; dt.side_effect = datetime

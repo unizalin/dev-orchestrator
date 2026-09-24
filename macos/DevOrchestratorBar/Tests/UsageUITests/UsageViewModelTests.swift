@@ -159,4 +159,37 @@ final class UsageViewModelTests: XCTestCase {
         XCTAssertTrue(emptyModel.isEmpty)
         XCTAssertTrue(emptyModel.showsEmptyState)
     }
+
+    @MainActor
+    func testGroupingIdentityIncludesProjectKeyAndRetainsStableSort() async {
+        let rows = [
+            UsageRow(
+                projectKey: "project-b",
+                projectLabel: "Shared",
+                accountAlias: "work",
+                role: "build",
+                provider: "openai",
+                model: "gpt",
+                precision: "exact",
+                usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 20)
+            ),
+            UsageRow(
+                projectKey: "project-a",
+                projectLabel: "Shared",
+                accountAlias: "work",
+                role: "build",
+                provider: "openai",
+                model: "gpt",
+                precision: "exact",
+                usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 10)
+            ),
+        ]
+        let loader = QueuedLoader([.success(snapshot(rows: rows))])
+        let model = UsageViewModel(loader: loader)
+
+        await model.refresh()
+
+        XCTAssertEqual(model.groupedRows.count, 2)
+        XCTAssertEqual(model.rowGroups.map { $0.rows.first?.projectKey }, ["project-a", "project-b"])
+    }
 }

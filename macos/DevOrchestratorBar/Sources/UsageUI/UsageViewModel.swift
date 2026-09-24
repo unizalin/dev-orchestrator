@@ -20,6 +20,14 @@ public struct UsageRowGroup: Identifiable, Equatable, Sendable {
         self.id = id
         self.rows = rows
     }
+
+    /// Human-readable grouping label kept separate from the stable identity.
+    /// The project key remains in `id` even when labels collide.
+    public var displayLabel: String {
+        guard let row = rows.first else { return id }
+        return [row.projectLabel, row.accountAlias, row.role, row.provider, row.model]
+            .joined(separator: " / ")
+    }
 }
 
 @MainActor
@@ -106,7 +114,7 @@ public final class UsageViewModel: ObservableObject {
     public var showsEmptyState: Bool { isEmpty && state != .loading }
 
     private static func groupKey(for row: UsageRow) -> String {
-        [row.projectLabel, row.accountAlias, row.role, row.provider, row.model]
+        [row.projectKey, row.projectLabel, row.accountAlias, row.role, row.provider, row.model]
             .joined(separator: " / ")
     }
 }

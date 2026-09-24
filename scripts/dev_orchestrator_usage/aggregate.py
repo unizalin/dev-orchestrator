@@ -52,10 +52,15 @@ def _fmt(value):
     if value < 1000: return str(value)
     for div, suffix in ((1_000_000_000, "B"), (1_000_000, "M"), (1_000, "K")):
         if value >= div:
-            scaled = value / div
-            if suffix == "K" and scaled >= 999.95:
+            # Round the displayed tenth with integer half-up arithmetic. This
+            # avoids both binary-float representation drift and Python's
+            # banker's rounding (e.g. 1,250 must become 1.3K).
+            tenths = (value * 10 + div // 2) // div
+            if suffix == "K" and tenths >= 10_000:
                 return "1M"
-            return f"{scaled:.1f}{suffix}".replace(".0", "")
+            whole, remainder = divmod(tenths, 10)
+            compact = str(whole) if remainder == 0 else f"{whole}.{remainder}"
+            return f"{compact}{suffix}"
 
 def render_project_report(events: Iterable[UsageEvent], *, project_label: str | None = None,
                           project_key: str | None = None, now: datetime | None = None, window: timedelta | None = None) -> str:
