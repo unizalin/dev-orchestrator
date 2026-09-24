@@ -47,6 +47,22 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertEqual(manifest["LSMinimumSystemVersion"], "13.0")
         self.assertIs(manifest["LSUIElement"], True)
 
+    def test_portable_validator_rejects_wrong_bundle_short_version_even_with_decoy(self):
+        """Validation must inspect the parsed key, not any matching XML substring."""
+        with tempfile.TemporaryDirectory() as temporary:
+            copy_root = Path(temporary) / ROOT.name
+            shutil.copytree(ROOT, copy_root)
+            plist_path = copy_root / "macos/DevOrchestratorBar/Resources/Info.plist"
+            plist = plistlib.loads(plist_path.read_bytes())
+            plist["CFBundleShortVersionString"] = "9.9.9"
+            plist["DecoyVersion"] = "2.2.0"
+            plist_path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML))
+            result = subprocess.run(
+                [os.environ.get("PYTHON", "python3"), "scripts/validate_portable.py", str(copy_root)],
+                cwd=copy_root, text=True, capture_output=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+
     def test_build_script_assembles_helper_and_python_module_tree(self):
         lines = self._executable_lines(BUILD_SCRIPT)
         script = "\n".join(lines)

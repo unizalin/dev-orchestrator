@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import plistlib
 import sys
 from pathlib import Path
 
@@ -95,9 +96,15 @@ def main() -> int:
 
     config = yaml.safe_load((root / "config.yaml").read_text())
     require(config["portable_version"] == version, "VERSION and config portable_version differ")
-    plist = (root / "macos/DevOrchestratorBar/Resources/Info.plist").read_text()
-    require("<key>CFBundleShortVersionString</key>" in plist, "Info.plist lacks bundle version")
-    require("<string>2.2.0</string>" in plist, "Info.plist version must be 2.2.0")
+    plist_path = root / "macos/DevOrchestratorBar/Resources/Info.plist"
+    try:
+        plist = plistlib.loads(plist_path.read_bytes())
+    except (plistlib.InvalidFileException, OSError) as exc:
+        raise AssertionError(f"Info.plist is not a valid plist: {exc}") from exc
+    require(plist.get("CFBundleShortVersionString") == version,
+            "Info.plist CFBundleShortVersionString must match VERSION")
+    require(plist.get("CFBundleVersion") == "220",
+            "Info.plist CFBundleVersion must be 220")
     require(config["usage_tracking"]["mode"] == "opt_in", "usage tracking must be opt-in")
     require(list(config["roles"].keys()) == EXPECTED_ROLES, "config role set/order changed")
     require(config["limits"]["sol_min_failed_attempts"] == 2, "Sol threshold must default to 2")
