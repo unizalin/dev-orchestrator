@@ -11,8 +11,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "UsageClient"),
-        .target(name: "UsageUI"),
+        .target(name: "UsageUI", dependencies: ["UsageClient"]),
         .executableTarget(name: "DevOrchestratorBar", dependencies: ["UsageUI"]),
         .testTarget(name: "UsageClientTests", dependencies: ["UsageClient"]),
+        .testTarget(name: "UsageUITests", dependencies: ["UsageUI", "UsageClient"]),
     ]
 )
