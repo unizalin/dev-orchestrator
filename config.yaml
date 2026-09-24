@@ -1,0 +1,84 @@
+schema_version: 2
+portable_version: "2.0.0"
+default_mode: "auto"
+
+# This file is the only source of provider/model bindings. Core workflows use
+# role names only so bindings can change without rewriting workflow policy.
+roles:
+  spec:
+    provider: "openai"
+    model: "gpt-6-astra"
+    reasoning: "high"
+    use_when: "Large, architectural, ambiguous, or high-risk specification work"
+
+  implement:
+    provider: "openai"
+    model: "gpt-5.6-luna"
+    reasoning: "medium"
+    allowed_reasoning: ["low", "medium", "high", "xhigh", "max"]
+    use_when: "Primary implementation worker; adjust effort to task complexity"
+
+  quick_implement:
+    provider: "openai"
+    model: "gpt-5.6-luna"
+    reasoning: "low"
+    use_when: "Trivial, reversible, well-scoped edits"
+
+  investigate:
+    provider: "antigravity"
+    cli: "agy"
+    preferred_model: "gemini-3.1-pro-high"
+    effort: "high"
+    access: "read-only"
+    resolve_at_runtime: true
+    use_when: "Codebase investigation, dependency analysis, root-cause analysis, or impact analysis"
+
+  quick_review:
+    provider: "antigravity"
+    cli: "agy"
+    preferred_model: "gemini-3.8-flash-high"
+    effort: "high"
+    access: "read-only"
+    resolve_at_runtime: true
+    use_when: "Fast, non-duplicative review of an existing diff"
+
+  escalate:
+    provider: "openai"
+    model: "gpt-5.6-sol"
+    reasoning: "high"
+    use_when: "Explicit override or unresolved material problem after the escalation threshold"
+
+  independent_review:
+    provider: "antigravity"
+    cli: "agy"
+    preferred_model: "claude-sonnet-4-6"
+    effort: "high"
+    access: "read-only"
+    resolve_at_runtime: true
+    use_when: "Explicit request or genuinely high-risk change requiring an independent perspective"
+
+limits:
+  sol_min_failed_attempts: 2
+  external_calls_per_phase: 1
+  parallel_writers_per_file_set: 1
+  independent_review_by_default: false
+  external_agents_read_only_by_default: true
+
+reasoning_policy:
+  trivial: "low"
+  clear: "medium"
+  complex: "high"
+  quality_first: "xhigh"
+  hardest: "max"
+
+discovery:
+  antigravity:
+    command: "agy models"
+    verify_before_first_use_in_task: true
+    observed_on: "2026-09-23"
+    observed_preferred_models:
+      - "gemini-3.1-pro-high"
+      - "gemini-3.8-flash-high"
+      - "claude-sonnet-4-6"
+      - "claude-opus-4-6-thinking"
+    note: "Observed IDs are a cache, not a guarantee. Resolve before use and fall back within the same role."

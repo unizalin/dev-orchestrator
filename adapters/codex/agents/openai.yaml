@@ -1,0 +1,6 @@
+interface:
+  display_name: "Portable Development Orchestrator"
+  short_description: "Route implementation and return a verified DEV HANDOFF"
+  default_prompt: "Use $dev-orchestrator to implement this task and return a verified DEV HANDOFF."
+policy:
+  allow_implicit_invocation: true
