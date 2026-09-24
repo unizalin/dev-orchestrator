@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
 public struct CommandResult: Sendable {
     public let status: Int32
@@ -28,32 +31,182 @@ public enum UsageClientError: Error, Equatable, Sendable {
     case executionFailed(String)
 }
 
-private enum ProcessCommandError: Error {
+internal enum ProcessCommandError: Error, Equatable, Sendable {
     case timedOut
 }
 
-private final class ProcessCompletion: @unchecked Sendable {
+private final class ProcessCommandRunState: @unchecked Sendable {
     private let lock = NSLock()
-    private var completed = false
+    private let process: Process
+    private let stdoutHandle: FileHandle
+    private let stderrHandle: FileHandle
     private let continuation: CheckedContinuation<CommandResult, Error>
+    private var didStartDraining = false
+    private var didTerminate = false
+    private var terminationStatus: Int32 = 0
+    private var stdoutFinished = false
+    private var stderrFinished = false
+    private var stdout = Data()
+    private var stderr = Data()
+    private var timedOut = false
+    private var completed = false
+    private var timeoutWorkItem: DispatchWorkItem?
+    private var graceWorkItem: DispatchWorkItem?
 
-    init(_ continuation: CheckedContinuation<CommandResult, Error>) {
+    init(
+        process: Process,
+        stdoutHandle: FileHandle,
+        stderrHandle: FileHandle,
+        continuation: CheckedContinuation<CommandResult, Error>
+    ) {
+        self.process = process
+        self.stdoutHandle = stdoutHandle
+        self.stderrHandle = stderrHandle
         self.continuation = continuation
     }
 
-    func finish(_ result: Result<CommandResult, Error>) {
+    func startDraining(timeout: TimeInterval) {
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            self?.timeoutFired()
+        }
+
         lock.lock()
-        guard !completed else { lock.unlock(); return }
-        completed = true
+        didStartDraining = true
+        self.timeoutWorkItem = timeoutWorkItem
+        let processAlreadyTerminated = didTerminate
         lock.unlock()
-        continuation.resume(with: result)
+
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let data = Self.drain(stdoutHandle, retainingAtMost: nil)
+            stdoutDidFinish(data)
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let data = Self.drain(stderrHandle, retainingAtMost: 4096)
+            stderrDidFinish(data)
+        }
+
+        if processAlreadyTerminated {
+            timeoutWorkItem.cancel()
+        } else {
+            let delay = max(0, timeout)
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(
+                deadline: .now() + delay,
+                execute: timeoutWorkItem
+            )
+        }
+        finishIfReady()
+    }
+
+    func processDidTerminate(status: Int32) {
+        lock.lock()
+        didTerminate = true
+        terminationStatus = status
+        lock.unlock()
+        finishIfReady()
+    }
+
+    private func stdoutDidFinish(_ data: Data) {
+        lock.lock()
+        stdout = data
+        stdoutFinished = true
+        lock.unlock()
+        finishIfReady()
+    }
+
+    private func stderrDidFinish(_ data: Data) {
+        lock.lock()
+        stderr = data
+        stderrFinished = true
+        lock.unlock()
+        finishIfReady()
+    }
+
+    private func timeoutFired() {
+        lock.lock()
+        guard !completed, !didTerminate else {
+            lock.unlock()
+            return
+        }
+        guard process.isRunning else {
+            lock.unlock()
+            return
+        }
+        timedOut = true
+        let graceWorkItem = DispatchWorkItem { [weak self] in
+            self?.gracePeriodExpired()
+        }
+        self.graceWorkItem = graceWorkItem
+        lock.unlock()
+
+        process.terminate()
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + 0.25,
+            execute: graceWorkItem
+        )
+        finishIfReady()
+    }
+
+    private func gracePeriodExpired() {
+        lock.lock()
+        guard !completed, !didTerminate else {
+            lock.unlock()
+            return
+        }
+        let shouldKill = process.isRunning
+        lock.unlock()
+
+        guard shouldKill else { return }
+        #if canImport(Darwin)
+        _ = kill(process.processIdentifier, SIGKILL)
+        #else
+        process.terminate()
+        #endif
+    }
+
+    private func finishIfReady() {
+        let result: Result<CommandResult, Error>?
+
+        lock.lock()
+        guard !completed, didStartDraining, didTerminate, stdoutFinished, stderrFinished else {
+            lock.unlock()
+            return
+        }
+        completed = true
+        timeoutWorkItem?.cancel()
+        graceWorkItem?.cancel()
+        if timedOut {
+            result = .failure(ProcessCommandError.timedOut)
+        } else {
+            result = .success(CommandResult(status: terminationStatus, stdout: stdout, stderr: stderr))
+        }
+        lock.unlock()
+
+        process.terminationHandler = nil
+        continuation.resume(with: result!)
+    }
+
+    private static func drain(_ handle: FileHandle, retainingAtMost limit: Int?) -> Data {
+        var retained = Data()
+        while true {
+            let chunk = handle.readData(ofLength: 64 * 1024)
+            guard !chunk.isEmpty else { break }
+
+            guard let limit else {
+                retained.append(chunk)
+                continue
+            }
+
+            let remaining = limit - retained.count
+            guard remaining > 0 else { continue }
+            retained.append(chunk.prefix(remaining))
+        }
+        return retained
     }
 }
 
-private struct ProcessCommandRunner: CommandRunning {
+internal struct ProcessCommandRunner: CommandRunning {
     func run(executable: URL, arguments: [String], environment: [String: String], timeout: TimeInterval) async throws -> CommandResult {
         try await withCheckedThrowingContinuation { continuation in
-            let completion = ProcessCompletion(continuation)
             let process = Process()
             process.executableURL = executable
             process.arguments = arguments
@@ -62,24 +215,32 @@ private struct ProcessCommandRunner: CommandRunning {
             let stderrPipe = Pipe()
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
+            let state = ProcessCommandRunState(
+                process: process,
+                stdoutHandle: stdoutPipe.fileHandleForReading,
+                stderrHandle: stderrPipe.fileHandleForReading,
+                continuation: continuation
+            )
 
             process.terminationHandler = { process in
-                let result = CommandResult(status: process.terminationStatus, stdout: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), stderr: stderrPipe.fileHandleForReading.readDataToEndOfFile())
-                completion.finish(.success(result))
+                state.processDidTerminate(status: process.terminationStatus)
             }
 
             do {
                 try process.run()
             } catch {
-                completion.finish(.failure(error))
+                process.terminationHandler = nil
+                stdoutPipe.fileHandleForReading.closeFile()
+                stderrPipe.fileHandleForReading.closeFile()
+                continuation.resume(throwing: error)
                 return
             }
 
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
-                guard process.isRunning else { return }
-                process.terminate()
-                completion.finish(.failure(ProcessCommandError.timedOut))
-            }
+            // The parent must close its write ends so the drainers observe EOF
+            // once the child closes its descriptors.
+            stdoutPipe.fileHandleForWriting.closeFile()
+            stderrPipe.fileHandleForWriting.closeFile()
+            state.startDraining(timeout: timeout)
         }
     }
 }

@@ -2,6 +2,40 @@ import XCTest
 @testable import UsageClient
 
 final class UsageSnapshotTests: XCTestCase {
+    func testDecodesPythonISO8601FractionalSecondsAndOffset() throws {
+        let fixture = #"""
+        {
+          "schema_version": 1,
+          "generated_at": "2026-09-24T10:00:00.123456+00:00",
+          "window": "5h",
+          "window_started_at": "2026-09-24T05:00:00+00:00",
+          "scope": "all_projects",
+          "current_project": null,
+          "selected_account": null,
+          "accounts": [],
+          "active_account": null,
+          "all_projects_window_total": null,
+          "selected_scope_window_total": null,
+          "current_project_cumulative_total": null,
+          "available_detail_fields": [],
+          "rows": [],
+          "diagnostics": {"malformed_event_count": 0}
+        }
+        """#.data(using: .utf8)!
+
+        let snapshot = try JSONDecoder.usageDecoder.decode(UsageSnapshot.self, from: fixture)
+        XCTAssertEqual(snapshot.generatedAt.timeIntervalSince1970, 1_790_244_000.123456, accuracy: 0.000001)
+        XCTAssertEqual(snapshot.windowStartedAt.timeIntervalSince1970, 1_790_226_000, accuracy: 0.000001)
+    }
+
+    func testDecodesPythonISO8601NonFractionalOffset() throws {
+        let fixture = #"{"schema_version":1,"generated_at":"2026-09-24T18:00:00+08:00","window":"5h","window_started_at":"2026-09-24T13:00:00+08:00","scope":"all_projects","current_project":null,"selected_account":null,"accounts":[],"active_account":null,"all_projects_window_total":null,"selected_scope_window_total":null,"current_project_cumulative_total":null,"available_detail_fields":[],"rows":[],"diagnostics":{"malformed_event_count":0}}"#.data(using: .utf8)!
+
+        let snapshot = try JSONDecoder.usageDecoder.decode(UsageSnapshot.self, from: fixture)
+        XCTAssertEqual(snapshot.generatedAt.timeIntervalSince1970, 1_790_244_000, accuracy: 0.000001)
+        XCTAssertEqual(snapshot.windowStartedAt.timeIntervalSince1970, 1_790_226_000, accuracy: 0.000001)
+    }
+
     func testDecodesSummaryContract() throws {
         let fixture = #"""
         {
