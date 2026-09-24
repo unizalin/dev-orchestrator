@@ -13,10 +13,10 @@ public enum LoadState: Equatable {
 /// by the reporting helper; this type keeps the grouping key available to the
 /// popover without asking the UI to recompute any totals.
 public struct UsageRowGroup: Identifiable, Equatable, Sendable {
-    public let id: String
+    public let id: UsageGroupIdentity
     public let rows: [UsageRow]
 
-    public init(id: String, rows: [UsageRow]) {
+    public init(id: UsageGroupIdentity, rows: [UsageRow]) {
         self.id = id
         self.rows = rows
     }
@@ -24,7 +24,7 @@ public struct UsageRowGroup: Identifiable, Equatable, Sendable {
     /// Human-readable grouping label kept separate from the stable identity.
     /// The project key remains in `id` even when labels collide.
     public var displayLabel: String {
-        guard let row = rows.first else { return id }
+        guard let row = rows.first else { return id.projectLabel }
         return [row.projectLabel, row.accountAlias, row.role, row.provider, row.model]
             .joined(separator: " / ")
     }
@@ -32,13 +32,22 @@ public struct UsageRowGroup: Identifiable, Equatable, Sendable {
 
 /// Structural identity for a row group. Keeping each component separate
 /// avoids delimiter collisions (for example, `a / b` + `c` vs `a` + `b / c`).
-struct UsageGroupIdentity: Hashable, Sendable {
-    let projectKey: String
-    let projectLabel: String
-    let accountAlias: String
-    let role: String
-    let provider: String
-    let model: String
+public struct UsageGroupIdentity: Hashable, Sendable {
+    public let projectKey: String
+    public let projectLabel: String
+    public let accountAlias: String
+    public let role: String
+    public let provider: String
+    public let model: String
+
+    public init(projectKey: String, projectLabel: String, accountAlias: String, role: String, provider: String, model: String) {
+        self.projectKey = projectKey
+        self.projectLabel = projectLabel
+        self.accountAlias = accountAlias
+        self.role = role
+        self.provider = provider
+        self.model = model
+    }
 }
 
 @MainActor
@@ -111,8 +120,8 @@ public final class UsageViewModel: ObservableObject {
     }
 
     public var rowGroups: [UsageRowGroup] {
-        groupedRows.keys.sorted(by: Self.groupIdentitySort).enumerated().map { index, key in
-            UsageRowGroup(id: String(index), rows: groupedRows[key] ?? [])
+        groupedRows.keys.sorted(by: Self.groupIdentitySort).map { key in
+            UsageRowGroup(id: key, rows: groupedRows[key] ?? [])
         }
     }
 

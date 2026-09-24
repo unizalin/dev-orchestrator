@@ -206,4 +206,37 @@ final class UsageViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.rowGroups.count, 2)
     }
+
+    @MainActor
+    func testRowGroupIDsRemainStableWhenEarlierGroupIsInserted() async {
+        let common = (label: "Shared", account: "work", role: "build", provider: "openai", model: "gpt")
+        func row(_ projectKey: String, _ total: Int) -> UsageRow {
+            UsageRow(projectKey: projectKey, projectLabel: common.label, accountAlias: common.account, role: common.role, provider: common.provider, model: common.model, precision: "exact", usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: total))
+        }
+        let initialRows = [row("project-b", 2), row("project-c", 3)]
+        let updatedRows = [row("project-a", 1)] + initialRows
+        let loader = QueuedLoader([.success(snapshot(rows: initialRows)), .success(snapshot(rows: updatedRows))])
+        let model = UsageViewModel(loader: loader)
+
+        await model.refresh()
+        let initialIDs = Dictionary(uniqueKeysWithValues: model.rowGroups.map { ($0.id.projectKey, $0.id) })
+        await model.refresh()
+        let updatedIDs = Dictionary(uniqueKeysWithValues: model.rowGroups.map { ($0.id.projectKey, $0.id) })
+
+        XCTAssertEqual(initialIDs["project-b"], updatedIDs["project-b"])
+        XCTAssertEqual(initialIDs["project-c"], updatedIDs["project-c"])
+        XCTAssertNotEqual(updatedIDs["project-a"], updatedIDs["project-b"])
+    }
+
+    @MainActor
+    func testRowGroupIDsDifferForDifferentProjectKeys() async {
+        let rows = [
+            UsageRow(projectKey: "project-a", projectLabel: "Shared", accountAlias: "work", role: "build", provider: "openai", model: "gpt", precision: "exact", usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 1)),
+            UsageRow(projectKey: "project-b", projectLabel: "Shared", accountAlias: "work", role: "build", provider: "openai", model: "gpt", precision: "exact", usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 2)),
+        ]
+        let model = UsageViewModel(loader: QueuedLoader([.success(snapshot(rows: rows))]))
+        await model.refresh()
+        XCTAssertEqual(Set(model.rowGroups.map(\.id.projectKey)), ["project-a", "project-b"])
+        XCTAssertNotEqual(model.rowGroups[0].id, model.rowGroups[1].id)
+    }
 }
