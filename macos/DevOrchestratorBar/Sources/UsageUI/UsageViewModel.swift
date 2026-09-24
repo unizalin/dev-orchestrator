@@ -52,8 +52,12 @@ public struct UsageGroupIdentity: Hashable, Sendable {
 
 @MainActor
 public final class UsageViewModel: ObservableObject {
-    @Published public var scope: ProjectScope = .currentProject
-    @Published public var selectedAccount: String?
+    @Published public var scope: ProjectScope = .currentProject {
+        didSet { selectionDidChange() }
+    }
+    @Published public var selectedAccount: String? {
+        didSet { selectionDidChange() }
+    }
     @Published public var autoRefresh = true
     @Published public private(set) var snapshot: UsageSnapshot?
     @Published public private(set) var state: LoadState = .idle
@@ -62,30 +66,75 @@ public final class UsageViewModel: ObservableObject {
 
     private let loader: any UsageLoading
     private var refreshInFlight = false
+    private var refreshRequested = false
+    private var inFlightRequest: UsageRequest?
+    public private(set) var snapshotRequest: UsageRequest?
 
     public init(loader: any UsageLoading) {
         self.loader = loader
     }
 
     public func refresh() async {
-        guard !refreshInFlight else { return }
+        if refreshInFlight {
+            // A second request for the same selector is already covered by
+            // the active load. A changed selector, however, must be queued.
+            if currentRequest != inFlightRequest {
+                refreshRequested = true
+            }
+            return
+        }
+        refreshRequested = true
         refreshInFlight = true
-        defer { refreshInFlight = false }
-
-        if snapshot == nil {
-            state = .loading
+        defer {
+            refreshInFlight = false
+            inFlightRequest = nil
         }
 
-        do {
-            let loaded = try await loader.load(UsageRequest(scope: scope, account: selectedAccount))
-            snapshot = loaded
-            state = .loaded
-            isStale = false
-            refreshedAt = Date()
-        } catch {
-            state = .failed(error.localizedDescription)
-            isStale = snapshot != nil
+        while refreshRequested {
+            refreshRequested = false
+            let request = currentRequest
+            inFlightRequest = request
+            if displaySnapshot == nil {
+                state = .loading
+            }
+
+            do {
+                let loaded = try await loader.load(request)
+                // A selector can change while the helper is running. Never
+                // expose a response for the old selector; queue one more
+                // pass for the latest request instead.
+                guard request == currentRequest else {
+                    refreshRequested = true
+                    continue
+                }
+                snapshot = loaded
+                snapshotRequest = request
+                state = .loaded
+                isStale = false
+                refreshedAt = Date()
+            } catch {
+                guard request == currentRequest else {
+                    refreshRequested = true
+                    continue
+                }
+                state = .failed(error.localizedDescription)
+                isStale = snapshot != nil && snapshotRequest == request
+            }
         }
+    }
+
+    /// The request represented by the current controls. Keeping this value
+    /// derived prevents an old snapshot from being mistaken for current data.
+    public var currentRequest: UsageRequest {
+        UsageRequest(scope: scope, account: selectedAccount)
+    }
+
+    /// Snapshot data is safe for the popover only when it matches the current
+    /// scope/account selection. The last successful snapshot remains stored so
+    /// the global menu title can continue to show its unfiltered total.
+    public var displaySnapshot: UsageSnapshot? {
+        guard snapshotRequest == currentRequest else { return nil }
+        return snapshot
     }
 
     /// The menu bar title always reflects the global five-hour total. It is
@@ -94,21 +143,21 @@ public final class UsageViewModel: ObservableObject {
         compactTokens(snapshot?.allProjectsWindowTotal)
     }
 
-    public var selectedTotal: Int? { snapshot?.selectedScopeWindowTotal }
-    public var selectedWindowTotal: Int? { snapshot?.selectedScopeWindowTotal }
-    public var selectedScopeTotal: Int? { snapshot?.selectedScopeWindowTotal }
-    public var selectedScopeWindowTotal: Int? { snapshot?.selectedScopeWindowTotal }
+    public var selectedTotal: Int? { displaySnapshot?.selectedScopeWindowTotal }
+    public var selectedWindowTotal: Int? { displaySnapshot?.selectedScopeWindowTotal }
+    public var selectedScopeTotal: Int? { displaySnapshot?.selectedScopeWindowTotal }
+    public var selectedScopeWindowTotal: Int? { displaySnapshot?.selectedScopeWindowTotal }
     public var globalTotal: Int? { snapshot?.allProjectsWindowTotal }
     public var globalWindowTotal: Int? { snapshot?.allProjectsWindowTotal }
     public var allProjectsTotal: Int? { snapshot?.allProjectsWindowTotal }
     public var allProjectsWindowTotal: Int? { snapshot?.allProjectsWindowTotal }
-    public var currentProjectCumulativeTotal: Int? { snapshot?.currentProjectCumulativeTotal }
+    public var currentProjectCumulativeTotal: Int? { displaySnapshot?.currentProjectCumulativeTotal }
 
-    public var accounts: [String] { snapshot?.accounts ?? [] }
-    public var currentProject: ProjectInfo? { snapshot?.currentProject }
-    public var activeAccount: String? { snapshot?.activeAccount }
-    public var rows: [UsageRow] { snapshot?.rows ?? [] }
-    public var visibleDetailFields: [String] { snapshot?.availableDetailFields ?? [] }
+    public var accounts: [String] { displaySnapshot?.accounts ?? [] }
+    public var currentProject: ProjectInfo? { displaySnapshot?.currentProject }
+    public var activeAccount: String? { displaySnapshot?.activeAccount }
+    public var rows: [UsageRow] { displaySnapshot?.rows ?? [] }
+    public var visibleDetailFields: [String] { displaySnapshot?.availableDetailFields ?? [] }
     public var availableDetailFields: [String] { visibleDetailFields }
 
     /// Group rows by their complete display identity. The key is stable and
@@ -132,6 +181,20 @@ public final class UsageViewModel: ObservableObject {
     public var isEmptyState: Bool { isEmpty }
     public var hasNoData: Bool { isEmpty }
     public var showsEmptyState: Bool { isEmpty && state != .loading }
+
+    private func selectionDidChange() {
+        guard snapshotRequest != currentRequest || snapshot != nil else { return }
+        refreshRequested = true
+        state = .loading
+        isStale = false
+
+        // Property changes can originate from SwiftUI bindings as well as
+        // callers. Schedule a refresh immediately; refresh() coalesces this
+        // task with any in-flight load and always uses the latest selection.
+        Task { [weak self] in
+            await self?.refresh()
+        }
+    }
 
     private static func groupKey(for row: UsageRow) -> UsageGroupIdentity {
         UsageGroupIdentity(

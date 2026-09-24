@@ -65,10 +65,24 @@ public struct DevOrchestratorBarApp: App {
                 }
             }
         } label: {
-            // A missing total intentionally leaves only the system image in
-            // the menu bar; a number is shown only for the global 5h total.
-            Label(model.menuBarTitle ?? "", systemImage: "chart.bar.xaxis")
+            menuBarLabel(model: model)
         }
         .menuBarExtraStyle(.window)
+    }
+
+    @ViewBuilder
+    private func menuBarLabel(model: UsageViewModel) -> some View {
+        let presentation = MenuBarLabelPresentation(title: model.menuBarTitle)
+        if let title = presentation.title {
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: "chart.bar.xaxis")
+            }
+            .accessibilityLabel(presentation.accessibilityLabel)
+        } else {
+            Image(systemName: "chart.bar.xaxis")
+                .accessibilityLabel(presentation.accessibilityLabel)
+        }
     }
 }

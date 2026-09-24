@@ -70,4 +70,46 @@ final class ConditionalPresentationTests: XCTestCase {
         let empty = snapshot()
         XCTAssertTrue(Presentation(snapshot: empty).showsEmptyState)
     }
+
+    func testHidesSummaryWhenSelectedTotalIsUnavailable() {
+        let unavailable = snapshot()
+        XCTAssertFalse(Presentation(snapshot: unavailable).showsSummary)
+    }
+
+    func testShowsSummaryWhenSelectedTotalExists() {
+        let available = UsageSnapshot(
+            schemaVersion: 1,
+            generatedAt: Date(timeIntervalSince1970: 1),
+            window: "5h",
+            windowStartedAt: Date(timeIntervalSince1970: 0),
+            scope: .currentProject,
+            currentProject: nil,
+            selectedAccount: nil,
+            accounts: [],
+            activeAccount: nil,
+            allProjectsWindowTotal: nil,
+            selectedScopeWindowTotal: 12,
+            currentProjectCumulativeTotal: nil,
+            availableDetailFields: [],
+            rows: [],
+            diagnostics: UsageDiagnostics(malformedEventCount: 0)
+        )
+        XCTAssertTrue(Presentation(snapshot: available).showsSummary)
+    }
+
+    func testHidesCumulativeMetricWhenUnavailable() {
+        XCTAssertFalse(Presentation(snapshot: snapshot()).showsCumulative)
+    }
+
+    func testMenuBarLabelUsesAccessibleIconWhenTitleIsMissing() {
+        let presentation = MenuBarLabelPresentation(title: nil)
+        XCTAssertFalse(presentation.showsTitle)
+        XCTAssertEqual(presentation.accessibilityLabel, "開啟追蹤用量")
+    }
+
+    func testMenuBarLabelIncludesTitleWhenAvailable() {
+        let presentation = MenuBarLabelPresentation(title: "1.3K")
+        XCTAssertTrue(presentation.showsTitle)
+        XCTAssertEqual(presentation.accessibilityLabel, "追蹤用量：1.3K")
+    }
 }

@@ -33,11 +33,36 @@ public struct Presentation: Equatable, Sendable {
         snapshot != nil && (snapshot?.rows.isEmpty ?? true)
     }
 
+    public var showsSummary: Bool {
+        snapshot?.selectedScopeWindowTotal != nil
+    }
+
+    public var showsCumulative: Bool {
+        snapshot?.currentProjectCumulativeTotal != nil
+    }
+
     private func showsDetail(_ field: String, at keyPath: KeyPath<UsageTokens, Int?>) -> Bool {
         guard let snapshot,
               snapshot.availableDetailFields.contains(field)
         else { return false }
         return snapshot.rows.contains { $0.usage[keyPath: keyPath] != nil }
+    }
+}
+
+/// Pure menu-bar label rules keep the nil-title accessibility behavior
+/// testable without rendering a MenuBarExtra scene.
+public struct MenuBarLabelPresentation: Equatable, Sendable {
+    public let title: String?
+
+    public init(title: String?) {
+        self.title = title
+    }
+
+    public var showsTitle: Bool { title != nil }
+
+    public var accessibilityLabel: String {
+        guard let title else { return "開啟追蹤用量" }
+        return "追蹤用量：\(title)"
     }
 }
 
@@ -97,12 +122,18 @@ public struct UsagePopoverView: View {
                 Text("全部專案").tag(ProjectScope.allProjects)
             }
             .pickerStyle(.segmented)
+            .onChange(of: model.scope) { _ in
+                Task { await model.refresh() }
+            }
 
             Picker("帳號", selection: $model.selectedAccount) {
                 Text("全部帳號").tag(String?.none)
                 ForEach(model.accounts, id: \.self) { account in
                     Text(account).tag(Optional(account))
                 }
+            }
+            .onChange(of: model.selectedAccount) { _ in
+                Task { await model.refresh() }
             }
 
             Toggle("自動更新（30 秒）", isOn: $model.autoRefresh)
@@ -115,7 +146,7 @@ public struct UsagePopoverView: View {
 
     @ViewBuilder
     private var content: some View {
-        let presentation = Presentation(snapshot: model.snapshot)
+        let presentation = Presentation(snapshot: model.displaySnapshot)
         if model.isLoading && !model.hasSnapshot {
             ProgressView("載入追蹤用量…")
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -137,7 +168,7 @@ public struct UsagePopoverView: View {
 
                 if presentation.showsDiagnostics {
                     Label(
-                        "略過 \(model.snapshot?.diagnostics.malformedEventCount ?? 0) 筆格式錯誤資料",
+                        "略過 \(model.displaySnapshot?.diagnostics.malformedEventCount ?? 0) 筆格式錯誤資料",
                         systemImage: "exclamationmark.triangle"
                     )
                     .font(.caption)
@@ -151,20 +182,30 @@ public struct UsagePopoverView: View {
         }
     }
 
+    @ViewBuilder
     private var totals: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("近 5 小時已追蹤用量")
-                .font(.headline)
-            Text(compactTokens(model.selectedScopeWindowTotal) ?? "—")
-                .font(.system(.title2, design: .rounded).weight(.semibold))
+        let presentation = Presentation(snapshot: model.displaySnapshot)
+        if presentation.showsSummary || presentation.showsCumulative {
+            VStack(alignment: .leading, spacing: 8) {
+                if presentation.showsSummary,
+                   let selectedTotal = model.selectedScopeWindowTotal,
+                   let formatted = compactTokens(selectedTotal) {
+                    Text("近 5 小時已追蹤用量")
+                        .font(.headline)
+                    Text(formatted)
+                        .font(.system(.title2, design: .rounded).weight(.semibold))
+                }
 
-            if let cumulative = model.currentProjectCumulativeTotal {
-                LabeledContent("專案累計", value: compactTokens(cumulative) ?? "—")
-            }
-            if let refreshedAt = model.refreshedAt {
-                LabeledContent("上次更新", value: Self.dateFormatter.string(from: refreshedAt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if presentation.showsCumulative,
+                   let cumulative = model.currentProjectCumulativeTotal,
+                   let formatted = compactTokens(cumulative) {
+                    LabeledContent("專案累計", value: formatted)
+                }
+                if let refreshedAt = model.refreshedAt {
+                    LabeledContent("上次更新", value: Self.dateFormatter.string(from: refreshedAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

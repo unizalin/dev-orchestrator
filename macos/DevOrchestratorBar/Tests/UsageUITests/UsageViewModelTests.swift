@@ -119,6 +119,48 @@ final class UsageViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testSelectionChangeDoesNotExposeSnapshotForAnotherRequest() async {
+        let first = snapshot(selectedTotal: 10, scope: .currentProject)
+        let loader = QueuedLoader([.success(first)])
+        let model = UsageViewModel(loader: loader)
+
+        await model.refresh()
+        XCTAssertEqual(model.selectedScopeWindowTotal, 10)
+
+        model.scope = ProjectScope.allProjects
+
+        XCTAssertNil(model.selectedScopeWindowTotal)
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertNil(model.displaySnapshot)
+        XCTAssertEqual(model.menuBarTitle, compactTokens(first.allProjectsWindowTotal))
+    }
+
+    @MainActor
+    func testSelectionChangeDuringRefreshCoalescesLatestRequest() async {
+        let first = snapshot(selectedTotal: 10, scope: .currentProject)
+        let second = snapshot(selectedTotal: 20, scope: .allProjects, selectedAccount: "work")
+        let loader = QueuedLoader(
+            [.success(first), .success(second)],
+            delayNanoseconds: 50_000_000
+        )
+        let model = UsageViewModel(loader: loader)
+
+        async let initialRefresh: Void = model.refresh()
+        try? await Task.sleep(nanoseconds: 1_000_000)
+        model.scope = ProjectScope.allProjects
+        model.selectedAccount = "work"
+        _ = await initialRefresh
+
+        XCTAssertEqual(loader.requests, [
+            UsageRequest(scope: .currentProject),
+            UsageRequest(scope: .allProjects, account: "work"),
+        ])
+        XCTAssertEqual(model.snapshotRequest, UsageRequest(scope: .allProjects, account: "work"))
+        XCTAssertEqual(model.selectedScopeWindowTotal, 20)
+        XCTAssertEqual(model.state, LoadState.loaded)
+    }
+
+    @MainActor
     func testOverlappingRefreshesAreIgnored() async {
         let first = snapshot()
         let loader = QueuedLoader([.success(first)], delayNanoseconds: 50_000_000)
