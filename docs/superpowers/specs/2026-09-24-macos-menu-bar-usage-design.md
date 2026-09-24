@@ -103,7 +103,7 @@ Supporting build and installation scripts live under `scripts/`. Generated app b
 
 ### Component boundaries
 
-`dev-orchestrator-usage` owns data semantics. It adds a machine-readable summary command that accepts the same window and account filters as the current text reports, plus explicit current/all project scope and an explicit project path. It emits versioned JSON and sends diagnostics to standard error.
+`dev-orchestrator-usage` owns data semantics. It adds a machine-readable summary command that accepts the same window and account filters as the current text reports, plus explicit current/all project scope. “Current project” means the project belonging to the most recently completed valid ledger event, because a menu bar application has no meaningful repository working directory. Tests and development tools may supply an explicit project path override. The command emits versioned JSON and sends diagnostics to standard error.
 
 `UsageClient` owns process execution and JSON decoding. It executes the reporting helper packaged inside the app bundle, supplies a bounded `PATH` containing standard Apple Silicon, Intel Homebrew, and system binary locations, and reports clearly when Python 3 is unavailable. A development-tree helper path can be injected only by tests and debug builds. It returns typed success or error states and never interprets ledger files directly.
 
@@ -140,7 +140,7 @@ The app accepts only supported schema versions. An unsupported version produces 
 1. The app opens or the thirty-second timer fires.
 2. `UsageClient` invokes the local CLI with JSON output, five-hour window, selected scope, and optional account filter.
 3. The CLI reads the local registry and append-only ledger.
-4. The CLI resolves the current project from the app's requested working directory when current-project scope is selected.
+4. The CLI selects the project from the most recently completed valid ledger event when current-project scope is selected. An explicit project path override is used only when supplied by tests or development tools.
 5. Existing aggregation primitives select and group events and compute exact totals.
 6. The CLI emits versioned JSON.
 7. The app decodes it into immutable state and replaces the visible snapshot atomically.
@@ -150,7 +150,7 @@ The app never edits the ledger. Recording remains the responsibility of `task-st
 
 ## Project and Account Semantics
 
-Project identity continues to use the existing stable project key. Worktrees that share the same Git common directory are treated as one project. All-project scope groups by project key and label; labels are display text and are not unique identifiers.
+Project identity continues to use the existing stable project key. Worktrees that share the same Git common directory are treated as one project. All-project scope groups by project key and label; labels are display text and are not unique identifiers. The GUI's current project is the project of the latest valid event by `completed_at`, regardless of whether that event falls inside the selected five-hour window. If there are no events, no current project is selected and the empty state is shown.
 
 Account aliases are local attribution labels. The GUI account picker is a report filter. Changing it cannot change the active alias stored by `accounts set`, because filtering and attribution are separate user actions.
 
