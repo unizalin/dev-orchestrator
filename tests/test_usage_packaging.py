@@ -39,10 +39,10 @@ class UsagePackagingTests(unittest.TestCase):
         self.assertIn("do not claim", text)
         self.assertIn("local", text)
 
-    def test_portable_version_is_210(self):
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "2.1.0")
+    def test_portable_version_is_220(self):
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "2.2.0")
         config = yaml.safe_load((ROOT / "config.yaml").read_text())
-        self.assertEqual(config["portable_version"], "2.1.0")
+        self.assertEqual(config["portable_version"], "2.2.0")
 
     def test_smoke_fixture_is_exact(self):
         self.assertEqual((ROOT / "tests/fixtures/usage/smoke-prompt.txt").read_text().strip(), "Reply exactly OK")

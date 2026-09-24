@@ -54,6 +54,32 @@ ACCEPTED / NEEDS ITERATION
 
 在 Codex CLI 或 Codex Desktop 可直接描述開發工作，或明確輸入 `$dev-orchestrator`。完整實作任務結束時，Codex 會輸出 DEV HANDOFF 與可貼回 ChatGPT 的 RETURN 區塊。
 
+## macOS 選單列 App（2.2.0）
+
+若要在 macOS 上快速查看本機已追蹤的用量，可執行：
+
+```bash
+./scripts/install_macos_app.sh
+```
+
+腳本會建立 release app、放入匹配版本的 usage helper，並安裝到 `~/Applications/DevOrchestratorBar.app`（可用 `DEV_ORCHESTRATOR_APP_DIR` 指定其他使用者 Applications 目錄）。啟動後，圖示會出現在 macOS 螢幕右上角的選單列；這是 `LSUIElement` 選單列 App，因此不會在 Dock 顯示一般應用程式圖示。
+
+選單列標題顯示目前所有專案的五小時追蹤總量。彈出視窗可在「目前專案」與「所有專案」間切換，也可選擇「所有帳號」或單一帳號；目前專案是最近一次成功追蹤事件所屬的最新專案，而不是檔案系統中任意猜測的資料夾。若沒有目前專案或尚未有事件，介面會顯示清楚的 setup／empty state，提示先啟用追蹤並完成一個任務。
+
+這裡的五小時數字是本工具依已追蹤事件計算的本地統計，不是 OpenAI 或其他 provider 的官方 quota 百分比；不同帳號的 quota 不會合併。自動刷新每 30 秒只讀取本地 ledger、消耗零 model token，也不會重新執行模型請求。未啟用追蹤、未被記錄的歷史，以及啟用前的舊任務，都無法由 App 回填或推算。
+
+追蹤資料只留在本機 state directory（預設 `~/.codex`，可用 `DEV_ORCHESTRATOR_STATE_DIR` 變更）；不會儲存 prompt、response、credential 或 tool output。停用 `usage_tracking` 或移除本機 state 即可停止／清除本機統計。選單列 App 是 optional：不安裝或不啟動它，不影響 CLI、Codex Skill 或 ChatGPT export 的流程。
+
+### macOS 開發建置與測試
+
+```bash
+./scripts/build_macos_app.sh debug
+swift test --package-path macos/DevOrchestratorBar
+./scripts/validate.sh --skip-installed
+```
+
+`build_macos_app.sh release` 會在 `dist/DevOrchestratorBar.app` 產生簽署的 app；`install_macos_app.sh` 會先備份既有安裝再原子替換。非 macOS 主機仍可執行 portable 與 Python 驗證，驗證腳本會明確略過 macOS Swift 測試。
+
 ## ChatGPT 與 ChatGPT Work
 
 ChatGPT 不會因為 Mac 上存在 `~/.codex/skills/dev-orchestrator/` 就自動取得這套流程。先匯出：

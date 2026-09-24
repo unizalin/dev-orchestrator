@@ -2,6 +2,13 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.2.0 — 2026-09-24
+
+- 新增 macOS 選單列 App，可直接查看已追蹤任務的五小時用量。
+- 新增 `scripts/build_macos_app.sh` 與 `scripts/install_macos_app.sh` 的建置、簽署與安全安裝流程。
+- 補強 portable、macOS manifest、版本來源與完整驗證入口。
+- README 補充 GUI 範圍、隱私、刷新與帳號／專案篩選語意。
+
 ## 2.1.0 — 2026-09-24
 
 - Added opt-in, local-only terminal token usage tracking for Codex and Antigravity runs.

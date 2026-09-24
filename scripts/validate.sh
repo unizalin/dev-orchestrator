@@ -4,13 +4,15 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_root="$(cd "$script_dir/.." && pwd)"
 skip_installed=false
+skip_macos=false
 live_agy=false
 
 for arg in "$@"; do
   case "$arg" in
     --skip-installed) skip_installed=true ;;
+    --skip-macos) skip_macos=true ;;
     --live-agy) live_agy=true ;;
-    *) echo "Usage: $0 [--skip-installed] [--live-agy]" >&2; exit 2 ;;
+    *) echo "Usage: $0 [--skip-installed] [--skip-macos] [--live-agy]" >&2; exit 2 ;;
   esac
 done
 
@@ -30,6 +32,14 @@ fi
 
 if [[ "${DEV_ORCHESTRATOR_SKIP_USAGE_TESTS:-0}" != "1" ]]; then
   DEV_ORCHESTRATOR_SKIP_USAGE_TESTS=1 "$python_bin" -m unittest discover -s "$source_root/tests" -p 'test_usage_*.py' -v
+fi
+
+if [[ "$skip_macos" == true ]]; then
+  echo "macOS Swift package tests skipped (--skip-macos)."
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  swift test --package-path "$source_root/macos/DevOrchestratorBar"
+else
+  echo "macOS Swift package tests skipped on non-Darwin host."
 fi
 
 validator="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"

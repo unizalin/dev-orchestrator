@@ -53,3 +53,5 @@ tool output in usage state.
 ## Completion
 
 Run proportional verification. For a completed development task, output the exact DEV HANDOFF and RETURN TO CHATGPT sections from `references/handoff.md`, using actual models, files, commands, and results only. Keep the handoff in chat/terminal unless the user or project policy authorizes writing it into the repository.
+
+成功且已被 usage tracker 記錄的任務，會在可選的 macOS 選單列 App 中顯示；該 GUI 是便利的檢視介面，不是完成任務或使用本 Skill 的必要條件。

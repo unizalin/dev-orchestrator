@@ -82,15 +82,22 @@ def main() -> int:
         "scripts/dev-orchestrator-usage",
         "scripts/dev_orchestrator_usage/cli.py",
         "scripts/dev_orchestrator_usage/summary.py",
+        "scripts/build_macos_app.sh",
+        "scripts/install_macos_app.sh",
+        "macos/DevOrchestratorBar/Package.swift",
+        "macos/DevOrchestratorBar/Resources/Info.plist",
     ]
     missing = [path for path in required_files if not (root / path).is_file()]
     require(not missing, f"missing required files: {missing}")
 
     version = (root / "VERSION").read_text().strip()
-    require(version == "2.1.0", f"unexpected VERSION: {version}")
+    require(version == "2.2.0", f"unexpected VERSION: {version}")
 
     config = yaml.safe_load((root / "config.yaml").read_text())
     require(config["portable_version"] == version, "VERSION and config portable_version differ")
+    plist = (root / "macos/DevOrchestratorBar/Resources/Info.plist").read_text()
+    require("<key>CFBundleShortVersionString</key>" in plist, "Info.plist lacks bundle version")
+    require("<string>2.2.0</string>" in plist, "Info.plist version must be 2.2.0")
     require(config["usage_tracking"]["mode"] == "opt_in", "usage tracking must be opt-in")
     require(list(config["roles"].keys()) == EXPECTED_ROLES, "config role set/order changed")
     require(config["limits"]["sol_min_failed_attempts"] == 2, "Sol threshold must default to 2")
