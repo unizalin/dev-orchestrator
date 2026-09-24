@@ -1,0 +1,74 @@
+import Foundation
+import SwiftUI
+import UsageClient
+import UsageUI
+
+private struct MissingUsageClient: UsageLoading {
+    let expectedPath: String
+
+    func load(_: UsageRequest) async throws -> UsageSnapshot {
+        throw UsageClientError.executionFailed("找不到 UsageCLI：\(expectedPath)")
+    }
+}
+
+public enum AppDependencies {
+    /// Return the helper embedded in the app bundle. Deliberately do not
+    /// search PATH: a release app must invoke only its version-matched helper.
+    public static func usageHelperURL(bundle: Bundle = .main) -> URL? {
+        bundle.url(
+            forResource: "dev-orchestrator-usage",
+            withExtension: nil,
+            subdirectory: "UsageCLI"
+        )
+    }
+
+    public static func usageClient(bundle: Bundle = .main) -> any UsageLoading {
+        if let helperURL = usageHelperURL(bundle: bundle) {
+            return ProcessUsageClient(executable: helperURL)
+        }
+
+        let path = bundle.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("UsageCLI", isDirectory: true)
+            .appendingPathComponent("dev-orchestrator-usage", isDirectory: false)
+            .path
+        return MissingUsageClient(expectedPath: path)
+    }
+}
+
+@main
+public struct DevOrchestratorBarApp: App {
+    @StateObject private var model = UsageViewModel(loader: AppDependencies.usageClient())
+    @StateObject private var launchAtLogin = LaunchAtLogin()
+
+    public init() {}
+
+    public var body: some Scene {
+        MenuBarExtra {
+            UsagePopoverView(
+                model: model,
+                launchAtLogin: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                ),
+                launchAtLoginError: launchAtLogin.errorMessage
+            )
+            .task {
+                await model.refresh()
+            }
+            .task(id: model.autoRefresh) {
+                while model.autoRefresh && !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(30))
+                    guard !Task.isCancelled else { return }
+                    await model.refresh()
+                }
+            }
+        } label: {
+            // A missing total intentionally leaves only the system image in
+            // the menu bar; a number is shown only for the global 5h total.
+            Label(model.menuBarTitle ?? "", systemImage: "chart.bar.xaxis")
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
