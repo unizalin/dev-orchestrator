@@ -68,7 +68,7 @@ ACCEPTED / NEEDS ITERATION
 
 這裡的五小時數字是本工具依已追蹤事件計算的本地統計，不是 OpenAI 或其他 provider 的官方 quota 百分比；不同帳號的 quota 不會合併。自動刷新每 30 秒只讀取本地 ledger、消耗零 model token，也不會重新執行模型請求。未啟用追蹤、未被記錄的歷史，以及啟用前的舊任務，都無法由 App 回填或推算。
 
-追蹤資料只留在本機 state directory（預設 `~/.codex`，可用 `DEV_ORCHESTRATOR_STATE_DIR` 變更）；不會儲存 prompt、response、credential 或 tool output。停用 `usage_tracking` 或移除本機 state 即可停止／清除本機統計。選單列 App 是 optional：不安裝或不啟動它，不影響 CLI、Codex Skill 或 ChatGPT export 的流程。
+追蹤資料只留在本機 usage state directory（macOS 預設 `~/Library/Application Support/dev-orchestrator/usage`；其他平台使用 `$XDG_STATE_HOME/dev-orchestrator/usage`，若未設定則使用 `~/.local/state/dev-orchestrator/usage`；可用 `DEV_ORCHESTRATOR_STATE_DIR` 變更）。這與 Codex Skill 的安裝路徑 `~/.codex/skills/dev-orchestrator` 分開；不會儲存 prompt、response、credential 或 tool output。停用 `usage_tracking` 或移除本機 state 即可停止／清除本機統計。選單列 App 是 optional：不安裝或不啟動它，不影響 CLI、Codex Skill 或 ChatGPT export 的流程。
 
 ### macOS 開發建置與測試
 
@@ -110,7 +110,7 @@ ChatGPT adapter 不會宣稱能讀本機 repository、`~/.codex/skills` 或執�
 
 ## Token usage（Codex opt-in）
 
-Token usage tracking is opt-in, local-only, and non-blocking. Privacy is preserved: it never stores prompts, responses, credentials, or tool output. State lives outside the repository (by default under `~/.codex`); set `DEV_ORCHESTRATOR_STATE_DIR` to choose another local directory, or set the policy mode to `off` for opt-out.
+Token usage tracking is opt-in, local-only, and non-blocking. Privacy is preserved: it never stores prompts, responses, credentials, or tool output. Usage state lives outside the repository: on macOS it defaults to `~/Library/Application Support/dev-orchestrator/usage`, while other platforms use `$XDG_STATE_HOME/dev-orchestrator/usage` or, when unset, `~/.local/state/dev-orchestrator/usage`. The installed Skill remains under `~/.codex/skills/dev-orchestrator`; set `DEV_ORCHESTRATOR_STATE_DIR` to choose another local state directory, or set the policy mode to `off` for opt-out.
 
 ```bash
 ~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage setup --account personal
