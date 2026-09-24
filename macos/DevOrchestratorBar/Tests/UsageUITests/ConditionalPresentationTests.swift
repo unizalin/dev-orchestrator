@@ -101,6 +101,17 @@ final class ConditionalPresentationTests: XCTestCase {
         XCTAssertFalse(Presentation(snapshot: snapshot()).showsCumulative)
     }
 
+    func testShowsRefreshTimestampWhenSnapshotIsValidEvenWithoutTotals() {
+        let refreshedAt = Date(timeIntervalSince1970: 123)
+        let presentation = Presentation(snapshot: snapshot(rows: [row(output: 12)]), refreshedAt: refreshedAt)
+        XCTAssertTrue(presentation.showsRefreshTimestamp)
+    }
+
+    func testHidesRefreshTimestampWithoutSnapshotOrRefresh() {
+        XCTAssertFalse(Presentation(snapshot: nil, refreshedAt: Date()).showsRefreshTimestamp)
+        XCTAssertFalse(Presentation(snapshot: snapshot(rows: [row(output: 12)])).showsRefreshTimestamp)
+    }
+
     func testFailedLoadWithoutCurrentSnapshotShowsUnavailableState() {
         let presentation = Presentation(
             snapshot: nil,

@@ -8,15 +8,18 @@ public struct Presentation: Equatable, Sendable {
     public let snapshot: UsageSnapshot?
     public let loadState: LoadState
     public let hasStoredSnapshot: Bool
+    public let refreshedAt: Date?
 
     public init(
         snapshot: UsageSnapshot?,
         loadState: LoadState = .idle,
-        hasStoredSnapshot: Bool = false
+        hasStoredSnapshot: Bool = false,
+        refreshedAt: Date? = nil
     ) {
         self.snapshot = snapshot
         self.loadState = loadState
         self.hasStoredSnapshot = hasStoredSnapshot
+        self.refreshedAt = refreshedAt
     }
 
     public var contentState: UsagePopoverContentState {
@@ -57,6 +60,13 @@ public struct Presentation: Equatable, Sendable {
 
     public var showsCumulative: Bool {
         snapshot?.currentProjectCumulativeTotal != nil
+    }
+
+    /// A successful refresh timestamp is useful even when summary metrics are
+    /// unavailable. It is only shown for a valid display snapshot, preventing
+    /// a stale or never-refreshed timestamp from appearing on an empty view.
+    public var showsRefreshTimestamp: Bool {
+        snapshot != nil && refreshedAt != nil
     }
 
     private func showsDetail(_ field: String, at keyPath: KeyPath<UsageTokens, Int?>) -> Bool {
@@ -168,7 +178,8 @@ public struct UsagePopoverView: View {
         let presentation = Presentation(
             snapshot: model.displaySnapshot,
             loadState: model.state,
-            hasStoredSnapshot: model.snapshot != nil
+            hasStoredSnapshot: model.snapshot != nil,
+            refreshedAt: model.refreshedAt
         )
         if presentation.contentState == .loading {
             ProgressView("載入追蹤用量…")
@@ -207,8 +218,8 @@ public struct UsagePopoverView: View {
 
     @ViewBuilder
     private var totals: some View {
-        let presentation = Presentation(snapshot: model.displaySnapshot)
-        if presentation.showsSummary || presentation.showsCumulative {
+        let presentation = Presentation(snapshot: model.displaySnapshot, refreshedAt: model.refreshedAt)
+        if presentation.showsSummary || presentation.showsCumulative || presentation.showsRefreshTimestamp {
             VStack(alignment: .leading, spacing: 8) {
                 if presentation.showsSummary,
                    let selectedTotal = model.selectedScopeWindowTotal,
@@ -224,7 +235,7 @@ public struct UsagePopoverView: View {
                    let formatted = compactTokens(cumulative) {
                     LabeledContent("專案累計", value: formatted)
                 }
-                if let refreshedAt = model.refreshedAt {
+                if presentation.showsRefreshTimestamp, let refreshedAt = presentation.refreshedAt {
                     LabeledContent("上次更新", value: Self.dateFormatter.string(from: refreshedAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
