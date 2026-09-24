@@ -47,6 +47,10 @@ Produce this handoff after a complete development task. Report actual work only,
 
 <remaining risks or None>
 
+## Token Usage (optional)
+
+Include this section only when exact usage data exists for the current project. Show the current-project table with exact input/output/total tokens and account attribution; use `N/A` when a selected row has no exact value. Do not infer or combine unavailable data, and keep quota percentages separate for each account.
+
 ## Diff Summary
 
 <concise diff description>

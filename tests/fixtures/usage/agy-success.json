@@ -1,0 +1,14 @@
+{
+  "conversation_id": "conversation-1",
+  "status": "SUCCESS",
+  "response": "review complete\n",
+  "duration_seconds": 3.67,
+  "num_turns": 1,
+  "usage": {
+    "input_tokens": 15691,
+    "output_tokens": 11,
+    "thinking_tokens": 10,
+    "cache_read_tokens": 0,
+    "total_tokens": 15702
+  }
+}

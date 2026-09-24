@@ -2,6 +2,12 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.1.0 — 2026-09-24
+
+- Added opt-in, local-only terminal token usage tracking for Codex and Antigravity runs.
+- Added account/project/role/model totals, exact-versus-`N/A` display semantics, and optional per-account tokscale quota reporting.
+- Packaged the usage command in Codex installs while keeping ChatGPT exports free of local scripts.
+
 ## 2.0.0 — 2026-09-23
 
 - Established `~/Projects/dev-orchestrator/` as the portable source of truth.

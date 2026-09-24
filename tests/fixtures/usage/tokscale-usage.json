@@ -1,0 +1,6 @@
+{
+  "providers": [
+    {"provider":"codex","account":{"name":"personal"},"session":{"usedPercent":40,"resetsAt":"2026-09-24T12:00:00Z"},"weekly":{"usedPercent":20,"resetsAt":"2026-09-28T00:00:00Z"}},
+    {"provider":"codex","account":{"name":"work"},"session":{"usedPercent":30,"resetsAt":"2026-09-24T13:00:00Z"},"weekly":{"usedPercent":10,"resetsAt":"2026-09-29T00:00:00Z"}}
+  ]
+}

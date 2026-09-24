@@ -79,15 +79,18 @@ def main() -> int:
         "scripts/install_codex.sh",
         "scripts/validate.sh",
         "scripts/export_chatgpt.sh",
+        "scripts/dev-orchestrator-usage",
+        "scripts/dev_orchestrator_usage/cli.py",
     ]
     missing = [path for path in required_files if not (root / path).is_file()]
     require(not missing, f"missing required files: {missing}")
 
     version = (root / "VERSION").read_text().strip()
-    require(version == "2.0.0", f"unexpected VERSION: {version}")
+    require(version == "2.1.0", f"unexpected VERSION: {version}")
 
     config = yaml.safe_load((root / "config.yaml").read_text())
     require(config["portable_version"] == version, "VERSION and config portable_version differ")
+    require(config["usage_tracking"]["mode"] == "opt_in", "usage tracking must be opt-in")
     require(list(config["roles"].keys()) == EXPECTED_ROLES, "config role set/order changed")
     require(config["limits"]["sol_min_failed_attempts"] == 2, "Sol threshold must default to 2")
     for role in ("investigate", "quick_review", "independent_review"):

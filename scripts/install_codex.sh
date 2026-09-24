@@ -20,25 +20,30 @@ if [[ "$target" != "$codex_root/skills/dev-orchestrator" ]]; then
   exit 1
 fi
 
-"$script_dir/validate.sh" --skip-installed
+DEV_ORCHESTRATOR_SKIP_USAGE_TESTS=1 "$script_dir/validate.sh" --skip-installed
 
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/dev-orchestrator-codex.XXXXXX")"
 package="$temp_root/dev-orchestrator"
 
 cleanup() {
   if [[ -d "$temp_root" ]]; then
-    rmdir "$temp_root" 2>/dev/null || {
-      if command -v trash >/dev/null 2>&1; then
-        trash "$temp_root"
-      else
-        echo "Temporary directory retained for manual cleanup: $temp_root" >&2
+    temp_parent="$(cd "$(dirname "$temp_root")" 2>/dev/null && pwd -P)"
+    temp_name="$(basename "$temp_root")"
+    expected_parent="$(cd "${TMPDIR:-/tmp}" 2>/dev/null && pwd -P)"
+    resolved_temp="$(cd "$temp_root" 2>/dev/null && pwd -P)"
+    if [[ -n "$resolved_temp" && "$resolved_temp" != "/" && "$temp_parent" == "$expected_parent" && "$temp_name" == dev-orchestrator-codex.* ]]; then
+      if ! rm -rf -- "$resolved_temp"; then
+        echo "Temporary directory retained for manual cleanup: $resolved_temp" >&2
       fi
-    }
+    else
+      echo "Temporary directory retained for manual cleanup (safety check failed): $temp_root" >&2
+    fi
   fi
+  return 0
 }
 trap cleanup EXIT
 
-mkdir -p "$package/agents" "$package/references"
+mkdir -p "$package/agents" "$package/references" "$package/scripts/dev_orchestrator_usage"
 cp "$source_root/VERSION" "$package/VERSION"
 cp "$source_root/config.yaml" "$package/config.yaml"
 cp "$source_root/LICENSE" "$package/LICENSE"
@@ -50,6 +55,9 @@ cp "$source_root/core/model-roles.md" "$package/references/model-roles.md"
 cp "$source_root/core/overrides.md" "$package/references/overrides.md"
 cp "$source_root/core/handoff.md" "$package/references/handoff.md"
 cp "$source_root/core/external-agents.md" "$package/references/external-agents.md"
+cp "$source_root/scripts/dev-orchestrator-usage" "$package/scripts/dev-orchestrator-usage"
+cp "$source_root/scripts/dev_orchestrator_usage/"*.py "$package/scripts/dev_orchestrator_usage/"
+chmod 755 "$package/scripts/dev-orchestrator-usage"
 
 if [[ "$mode" == "check" ]]; then
   if [[ ! -d "$target" ]]; then
@@ -79,7 +87,7 @@ else
   exit 1
 fi
 
-if "$script_dir/validate.sh"; then
+if DEV_ORCHESTRATOR_SKIP_USAGE_TESTS=1 "$script_dir/validate.sh"; then
   echo "Post-install validation passed."
 else
   validation_status=$?

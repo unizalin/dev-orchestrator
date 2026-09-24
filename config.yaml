@@ -1,6 +1,14 @@
 schema_version: 2
-portable_version: "2.0.0"
+portable_version: "2.1.0"
 default_mode: "auto"
+
+usage_tracking:
+  mode: "opt_in"
+  state_dir_env: "DEV_ORCHESTRATOR_STATE_DIR"
+  default_window: "5h"
+  default_group_by: ["account", "role", "model"]
+  tokscale: "auto"
+  include_in_handoff: true
 
 # This file is the only source of provider/model bindings. Core workflows use
 # role names only so bindings can change without rewriting workflow policy.

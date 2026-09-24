@@ -31,6 +31,25 @@ Complete the software task; model routing is a means, not the deliverable.
 
 Use `escalate` only when the user explicitly requests it or at least `limits.sol_min_failed_attempts` independent evidence-based attempts failed and the issue remains material. Transport errors, unavailable models, permission failures, repeated ideas, and unrelated flaky tests do not count. Quality-first does not bypass this gate.
 
+## Usage tracking
+
+When the installed usage command reports tracking enabled, start one task record,
+checkpoint at role boundaries, and finish before DEV HANDOFF. Tracking is opt-in,
+diagnostic/non-blocking, and never blocks repository work. Use the installed path,
+for example:
+
+```sh
+~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage task-start
+~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage checkpoint --role <actual-role>
+~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage finish --role <actual-role>
+```
+
+Every role-boundary checkpoint and finish must pass the role that consumed the
+delta; never silently rely on the `implement` default for non-implementation
+work. For Antigravity roles, use the tracked invocation described in
+`references/external-agents.md`. Never store prompts, responses, credentials, or
+tool output in usage state.
+
 ## Completion
 
 Run proportional verification. For a completed development task, output the exact DEV HANDOFF and RETURN TO CHATGPT sections from `references/handoff.md`, using actual models, files, commands, and results only. Keep the handoff in chat/terminal unless the user or project policy authorizes writing it into the repository.

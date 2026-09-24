@@ -28,6 +28,10 @@ fi
 
 "$python_bin" "$script_dir/validate_portable.py" "$source_root"
 
+if [[ "${DEV_ORCHESTRATOR_SKIP_USAGE_TESTS:-0}" != "1" ]]; then
+  DEV_ORCHESTRATOR_SKIP_USAGE_TESTS=1 "$python_bin" -m unittest discover -s "$source_root/tests" -p 'test_usage_*.py' -v
+fi
+
 validator="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
 if [[ -f "$validator" ]]; then
   "$python_bin" "$validator" "$source_root/adapters/codex"

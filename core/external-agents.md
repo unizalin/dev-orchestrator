@@ -16,6 +16,20 @@ Do not silently change `config.yaml`, invent an ID, or switch roles. If no suita
 
 ## Read-only invocation
 
+When usage tracking is enabled, wrap the same bounded request with the installed tracker. The launcher is available at `~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage`; the bare `dev-orchestrator-usage` command is valid only after `setup` explicitly installs/configures that launcher on `PATH`:
+
+```bash
+~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage run-agy \
+  --role <role> --model <resolved-model-id> --effort <compatible-effort> \
+  --prompt-file <prompt-file>
+```
+
+The tracker itself invokes sandboxed, read-only `agy` with the bounded prompt and
+required print/plan settings. Users and agents must not append a second `agy`
+command; `run-agy` is the complete installed CLI interface.
+
+If tracking is disabled or unavailable, use the direct invocation below. Tracking is local and non-blocking; never include prompts, responses, credentials, or tool output in its state.
+
 Use print mode, plan mode, and sandboxing:
 
 ```bash

@@ -82,6 +82,22 @@ ChatGPT adapter 不會宣稱能讀本機 repository、`~/.codex/skills` 或執�
 - 本次只用 OpenAI：說 `OpenAI-only` 或「不要外部模型」。
 - 永久關閉 Sol：把政策改進 core/config 前，請明確要求「永久改設定」；一般 override 只影響本次任務。
 
+## Token usage（Codex opt-in）
+
+Token usage tracking is opt-in, local-only, and non-blocking. Privacy is preserved: it never stores prompts, responses, credentials, or tool output. State lives outside the repository (by default under `~/.codex`); set `DEV_ORCHESTRATOR_STATE_DIR` to choose another local directory, or set the policy mode to `off` for opt-out.
+
+```bash
+~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage setup --account personal
+dev-orchestrator-usage current --window 5h
+dev-orchestrator-usage all --window 5h
+dev-orchestrator-usage accounts
+dev-orchestrator-usage accounts set work
+```
+
+Rows show exact token counts when the provider supplies them; unavailable values are `N/A`. A token detail column is shown only when at least one selected row has useful data, while `TOTAL` always appears. Actual token totals may be summed across accounts, but quota percentages are kept separate and are never added together. `tokscale` is optional and detected at runtime; it is not installed automatically.
+
+The reporting shape is inspired by TokenBar and tokscale, while this project keeps its ledger local and provider-specific.
+
 ## 安全同步
 
 `install_codex.sh` 會先驗證 source，將現有 Skill 移到 `~/.codex/backups/dev-orchestrator/` 備份，再原子式換入新版本。它不使用 symlink、不修改其他 Skills，也不會建立 remote 或 push。
