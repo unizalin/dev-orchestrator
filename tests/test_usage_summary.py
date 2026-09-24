@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from scripts.dev_orchestrator_usage.model import TokenUsage, UsageEvent
@@ -9,8 +10,8 @@ NOW = datetime(2026, 9, 24, 10, 0, tzinfo=timezone.utc)
 
 
 def event_at(when=NOW, *, project_key="old", project_label="Old", account="personal", total=None,
-             input_tokens=None, output_tokens=None):
-    return UsageEvent.new(
+             input_tokens=None, output_tokens=None, recorded_at=None):
+    event = UsageEvent.new(
         started_at=when,
         completed_at=when,
         project_key=project_key,
@@ -27,6 +28,7 @@ def event_at(when=NOW, *, project_key="old", project_label="Old", account="perso
         precision="exact",
         usage=TokenUsage(input_tokens, None, None, output_tokens, None, total),
     )
+    return replace(event, recorded_at=recorded_at or when)
 
 
 EVENTS = [
@@ -56,6 +58,44 @@ class UsageSummaryTests(unittest.TestCase):
         self.assertEqual(summary["accounts"], ["personal", "work"])
         self.assertEqual(summary["active_account"], "work")
         self.assertEqual(summary["available_detail_fields"], ["input_tokens", "output_tokens"])
+
+        usage = summary["rows"][0]["usage"]
+        self.assertIsNone(usage["cache_tokens"])
+        self.assertIsNone(usage["thinking_tokens"])
+
+    def test_latest_project_can_exist_only_outside_window(self):
+        events = [
+            event_at(NOW - timedelta(hours=6), project_key="new", project_label="Newest", total=30),
+            event_at(NOW - timedelta(hours=7), project_key="old", project_label="Old", total=100),
+        ]
+        summary = build_summary(
+            events, window_name="5h", scope="current_project", accounts=[],
+            active_account=None, now=NOW,
+        )
+        self.assertEqual(summary["current_project"], {"key": "new", "label": "Newest"})
+        self.assertIsNone(summary["selected_scope_window_total"])
+        self.assertEqual(summary["current_project_cumulative_total"], 30)
+
+    def test_completed_at_now_is_included(self):
+        events = [event_at(NOW, project_key="now", project_label="Now", total=7)]
+        summary = build_summary(
+            events, window_name="5h", scope="all_projects", accounts=[],
+            active_account=None, now=NOW,
+        )
+        self.assertEqual(summary["all_projects_window_total"], 7)
+        self.assertEqual(summary["selected_scope_window_total"], 7)
+
+    def test_current_project_tie_break_is_deterministic(self):
+        tie_time = NOW - timedelta(hours=6)
+        events = [
+            event_at(tie_time, project_key="a", project_label="A", total=1, recorded_at=NOW - timedelta(days=2)),
+            event_at(tie_time, project_key="b", project_label="B", total=1, recorded_at=NOW - timedelta(days=1)),
+        ]
+        summary = build_summary(
+            events, window_name="5h", scope="current_project", accounts=[],
+            active_account=None, now=NOW,
+        )
+        self.assertEqual(summary["current_project"], {"key": "b", "label": "B"})
 
     def test_account_filter_does_not_change_global_total(self):
         summary = build_summary(
