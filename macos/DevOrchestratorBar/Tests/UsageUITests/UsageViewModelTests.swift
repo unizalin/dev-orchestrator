@@ -192,4 +192,18 @@ final class UsageViewModelTests: XCTestCase {
         XCTAssertEqual(model.groupedRows.count, 2)
         XCTAssertEqual(model.rowGroups.map { $0.rows.first?.projectKey }, ["project-a", "project-b"])
     }
+
+    @MainActor
+    func testGroupingIdentityDoesNotCollideOnSlashDelimitedFields() async {
+        let common = (account: "work", role: "build", provider: "openai", model: "gpt")
+        let rows = [
+            UsageRow(projectKey: "a / b", projectLabel: "c", accountAlias: common.account, role: common.role, provider: common.provider, model: common.model, precision: "exact", usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 1)),
+            UsageRow(projectKey: "a", projectLabel: "b / c", accountAlias: common.account, role: common.role, provider: common.provider, model: common.model, precision: "exact", usage: UsageTokens(inputTokens: nil, cacheTokens: nil, outputTokens: nil, thinkingTokens: nil, totalTokens: 2)),
+        ]
+        let model = UsageViewModel(loader: QueuedLoader([.success(snapshot(rows: rows))]))
+
+        await model.refresh()
+
+        XCTAssertEqual(model.rowGroups.count, 2)
+    }
 }

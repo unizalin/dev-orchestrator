@@ -30,6 +30,17 @@ public struct UsageRowGroup: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Structural identity for a row group. Keeping each component separate
+/// avoids delimiter collisions (for example, `a / b` + `c` vs `a` + `b / c`).
+struct UsageGroupIdentity: Hashable, Sendable {
+    let projectKey: String
+    let projectLabel: String
+    let accountAlias: String
+    let role: String
+    let provider: String
+    let model: String
+}
+
 @MainActor
 public final class UsageViewModel: ObservableObject {
     @Published public var scope: ProjectScope = .currentProject
@@ -93,15 +104,15 @@ public final class UsageViewModel: ObservableObject {
 
     /// Group rows by their complete display identity. The key is stable and
     /// human-readable, while the original rows remain authoritative.
-    public var groupedRows: [String: [UsageRow]] {
+    var groupedRows: [UsageGroupIdentity: [UsageRow]] {
         Dictionary(grouping: rows) { row in
             Self.groupKey(for: row)
         }
     }
 
     public var rowGroups: [UsageRowGroup] {
-        groupedRows.keys.sorted().map { key in
-            UsageRowGroup(id: key, rows: groupedRows[key] ?? [])
+        groupedRows.keys.sorted(by: Self.groupIdentitySort).enumerated().map { index, key in
+            UsageRowGroup(id: String(index), rows: groupedRows[key] ?? [])
         }
     }
 
@@ -113,8 +124,19 @@ public final class UsageViewModel: ObservableObject {
     public var hasNoData: Bool { isEmpty }
     public var showsEmptyState: Bool { isEmpty && state != .loading }
 
-    private static func groupKey(for row: UsageRow) -> String {
-        [row.projectKey, row.projectLabel, row.accountAlias, row.role, row.provider, row.model]
-            .joined(separator: " / ")
+    private static func groupKey(for row: UsageRow) -> UsageGroupIdentity {
+        UsageGroupIdentity(
+            projectKey: row.projectKey,
+            projectLabel: row.projectLabel,
+            accountAlias: row.accountAlias,
+            role: row.role,
+            provider: row.provider,
+            model: row.model
+        )
+    }
+
+    private static func groupIdentitySort(_ lhs: UsageGroupIdentity, _ rhs: UsageGroupIdentity) -> Bool {
+        [lhs.projectKey, lhs.projectLabel, lhs.accountAlias, lhs.role, lhs.provider, lhs.model]
+            .lexicographicallyPrecedes([rhs.projectKey, rhs.projectLabel, rhs.accountAlias, rhs.role, rhs.provider, rhs.model])
     }
 }
