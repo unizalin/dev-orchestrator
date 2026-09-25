@@ -48,11 +48,12 @@ def normalize_agy_result(payload: dict[str, Any], context: EventContext, *,
     )
 
 
-def run_agy(prompt_file: Path, *, role: str, model: str, effort: str,
+def run_agy(prompt_file: Path, *, role: str, model: str, effort: str | None,
             context: EventContext) -> tuple[str, UsageEvent]:
-    command = ["agy", "--print", prompt_file.read_text(encoding="utf-8"),
-               "--model", model, "--effort", effort, "--mode", "plan", "--output-format", "json",
-               "--sandbox", "--print-timeout", "0s"]
+    command = ["agy", "--print", prompt_file.read_text(encoding="utf-8"), "--model", model]
+    if effort not in (None, "", "auto"):
+        command.extend(["--effort", effort])
+    command.extend(["--mode", "plan", "--output-format", "json", "--sandbox", "--print-timeout", "0s"])
     started = datetime.now(timezone.utc)
     result = subprocess.run(command, text=True, capture_output=True, check=False)
     if result.returncode != 0:

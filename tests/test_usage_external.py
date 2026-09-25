@@ -55,10 +55,23 @@ class ExternalUsageTests(TestCase):
         self.assertIn("--sandbox", args)
         self.assertIn("--output-format", args)
         self.assertIn("--mode", args)
+        self.assertIn("--effort", args)
+        self.assertEqual(args[args.index("--effort") + 1], "high")
         self.assertEqual(args[args.index("--mode") + 1], "plan")
         self.assertNotIn("--dangerously-skip-permissions", args)
         self.assertEqual(response, "review complete\n")
         self.assertEqual(event.usage.total_tokens, 15702)
+
+    @mock.patch("scripts.dev_orchestrator_usage.external.subprocess.run")
+    def test_run_agy_auto_omits_incompatible_effort_argument(self, run):
+        run.return_value = CompletedProcess([], 0, FIXTURE.read_text(), "")
+        with TemporaryDirectory() as tmp:
+            prompt = Path(tmp) / "prompt.txt"
+            prompt.write_text("independent review")
+            run_agy(prompt, role="independent_review", model="claude-sonnet-4-6", effort="auto", context=context())
+
+        args = run.call_args.args[0]
+        self.assertNotIn("--effort", args)
 
     @mock.patch("scripts.dev_orchestrator_usage.external.subprocess.run")
     def test_run_agy_null_response_returns_empty_string(self, run):

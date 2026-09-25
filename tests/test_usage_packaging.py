@@ -61,6 +61,12 @@ class UsagePackagingTests(unittest.TestCase):
         config = yaml.safe_load((ROOT / "config.yaml").read_text())
         self.assertEqual(config["usage_tracking"]["mode"], "opt_in")
 
+    def test_external_effort_defaults_match_cli_compatibility(self):
+        config = yaml.safe_load((ROOT / "config.yaml").read_text())
+        self.assertEqual(config["roles"]["investigate"]["effort"], "high")
+        self.assertEqual(config["roles"]["quick_review"]["effort"], "high")
+        self.assertEqual(config["roles"]["independent_review"]["effort"], "auto")
+
     def test_chatgpt_adapter_still_disclaims_local_session_access(self):
         text = (ROOT / "adapters/chatgpt/SKILL.md").read_text().lower()
         self.assertIn("do not claim", text)

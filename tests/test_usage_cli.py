@@ -194,7 +194,38 @@ class UsageCliTests(TestCase):
                 result = run_cli('run-agy', '--role', 'investigate', '--model', 'gemini-3.1-pro-high', '--prompt-file', str(prompt), state_dir=root)
             self.assertEqual(result.returncode, 0); self.assertEqual(result.stdout, 'review complete\n'); self.assertNotIn('input_tokens', result.stdout); agy.assert_called_once()
             kwargs = agy.call_args.kwargs['context']; self.assertEqual(kwargs.role, 'investigate'); self.assertEqual(kwargs.model, 'gemini-3.1-pro-high'); self.assertEqual(kwargs.account_alias, 'personal')
+            self.assertEqual(agy.call_args.kwargs['effort'], 'high')
             events = list(Ledger(root).events()); self.assertEqual(len(events), 1); self.assertEqual(events[0].usage.total_tokens, 3); self.assertEqual(events[0].role, 'investigate')
+
+    def test_run_agy_cli_passes_auto_effort_for_model_specific_defaults(self):
+        from scripts.dev_orchestrator_usage import cli
+        from scripts.dev_orchestrator_usage.model import TokenUsage, UsageEvent
+        from scripts.dev_orchestrator_usage.state import Ledger
+        from datetime import datetime, timezone
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_cli('setup', '--account', 'personal', '--no-launcher', state_dir=root)
+            prompt = root / 'p.txt'
+            prompt.write_text('independent review')
+            event = UsageEvent.new(
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                project_key='x', project_label='x', account_alias='personal',
+                task_id='t', thread_id=None, session_id='s', conversation_id=None,
+                role='independent_review', provider='google', model='claude-sonnet-4-6',
+                source='agy', precision='exact', usage=TokenUsage(1, 0, 0, 2, 0, 3),
+            )
+            with mock.patch.object(cli, 'run_agy', return_value=('review complete\n', event)) as agy:
+                result = run_cli(
+                    'run-agy', '--role', 'independent_review',
+                    '--model', 'claude-sonnet-4-6', '--effort', 'auto',
+                    '--prompt-file', str(prompt), state_dir=root,
+                )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(agy.call_args.kwargs['effort'], 'auto')
+            self.assertEqual(len(list(Ledger(root).events())), 1)
 
     def test_current_filters_project_key_not_label(self):
         from scripts.dev_orchestrator_usage.model import UsageEvent, TokenUsage

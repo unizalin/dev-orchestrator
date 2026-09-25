@@ -60,7 +60,7 @@ roles:
     provider: "antigravity"
     cli: "agy"
     preferred_model: "claude-sonnet-4-6"
-    effort: "high"
+    effort: "auto"
     access: "read-only"
     resolve_at_runtime: true
     use_when: "Explicit request or genuinely high-risk change requiring an independent perspective"

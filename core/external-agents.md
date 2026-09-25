@@ -18,6 +18,8 @@ Do not silently change `config.yaml`, invent an ID, or switch roles. If no suita
 
 When usage tracking is enabled, wrap the same bounded request with the installed tracker. The launcher is available at `~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage`; the bare `dev-orchestrator-usage` command is valid only after `setup` explicitly installs/configures that launcher on `PATH`:
 
+Pass `--effort <compatible-effort>` for a concrete provider-supported effort. Use `auto` when the selected model should choose its own effort; the tracker then omits `--effort` entirely. This is the default for the Claude `independent_review` role because Claude model IDs may reject that flag. Gemini `investigate` and `quick_review` keep their configured `high` effort.
+
 ```bash
 ~/.codex/skills/dev-orchestrator/scripts/dev-orchestrator-usage run-agy \
   --role <role> --model <resolved-model-id> --effort <compatible-effort> \
