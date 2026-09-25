@@ -20,6 +20,7 @@ Recognize equivalent wording, not only these exact phrases.
 | `不要用 Sol` | Same as No Sol. |
 | `Force Sol High` | Explicitly use `escalate` at high effort and bypass the failure threshold for this task. |
 | `直接 Sol High` | Same as Force Sol High. |
+| `Luna implementation` | Require `implement` and `quick_implement` to run on the configured Luna model; pause if the active picker is another OpenAI model. |
 | `Astra 先設計` | Run `spec` before investigation/implementation; it does not grant write access. |
 | `不要 review` | Skip optional review roles; required verification and project-mandated checks remain. |
 | `加強 review` | Add the smallest review set that covers distinct named risks; do not run every reviewer. |

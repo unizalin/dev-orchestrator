@@ -43,8 +43,8 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertEqual(manifest["CFBundleIdentifier"], "com.unizalin.DevOrchestratorBar")
         self.assertEqual(manifest["CFBundleName"], "Dev Orchestrator")
         self.assertEqual(manifest["CFBundlePackageType"], "APPL")
-        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.3")
-        self.assertEqual(manifest["CFBundleVersion"], "223")
+        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.4")
+        self.assertEqual(manifest["CFBundleVersion"], "224")
         self.assertEqual(manifest["LSMinimumSystemVersion"], "13.0")
         self.assertIs(manifest["LSUIElement"], True)
 
@@ -56,7 +56,7 @@ class MacOSPackagingTests(unittest.TestCase):
             plist_path = copy_root / "macos/DevOrchestratorBar/Resources/Info.plist"
             plist = plistlib.loads(plist_path.read_bytes())
             plist["CFBundleShortVersionString"] = "9.9.9"
-            plist["DecoyVersion"] = "2.2.3"
+            plist["DecoyVersion"] = "2.2.4"
             plist_path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML))
             result = subprocess.run(
                 [os.environ.get("PYTHON", "python3"), "scripts/validate_portable.py", str(copy_root)],

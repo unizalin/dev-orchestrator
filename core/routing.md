@@ -2,6 +2,16 @@
 
 Resolve provider/model bindings from `config.yaml`. Apply task-scoped overrides from `overrides.md` before selecting roles.
 
+## Model-binding guard
+
+When `limits.strict_openai_role_binding` is enabled, a selected OpenAI role must
+run on the model bound to that role. In particular, `implement` and
+`quick_implement` are bound to Luna and must not silently fall back to the
+currently selected Sol model. If the active picker does not match, pause before
+writing and ask the user to switch the picker to Luna, unless the user gave an
+explicit model override. `escalate` remains the only automatic Sol path after
+the configured failure threshold.
+
 ## Decision order
 
 1. Apply read-only, safety, and explicit negative constraints.

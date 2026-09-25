@@ -20,7 +20,9 @@ Complete the software task; model routing is a means, not the deliverable.
 
 - Choose the smallest set of roles that contributes distinct information. Do not ask multiple models the same open-ended question.
 - User instructions override defaults. Task-scoped negative constraints remain active until the user changes them.
-- Prefer the active Codex when it already matches the selected OpenAI role. Otherwise use an available bounded worker/model override. If switching is unavailable, continue with active Codex and disclose the fallback.
+- Resolve the actual provider/model from `config.yaml` and record the model that really ran.
+- For `implement` and `quick_implement`, strict binding is on by default: the active OpenAI model must be the configured Luna model. If the current picker is Sol, stop before repository writes and ask the user to switch to Luna; never silently spend Sol for routine implementation.
+- A model mismatch may continue only for an explicit user override or the `escalate` role after its gate. Disclose the actual model in the handoff and usage record.
 - Antigravity work is advisory/read-only. Never let Gemini or Claude modify repository files.
 - Never let two agents modify the same file set concurrently. Assign exclusive ownership or request findings/patch suggestions for root Codex to integrate.
 - Root Codex owns final repository state, integration, build, tests, verification, and the user-facing handoff.

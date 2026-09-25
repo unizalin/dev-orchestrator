@@ -92,7 +92,7 @@ def main() -> int:
     require(not missing, f"missing required files: {missing}")
 
     version = (root / "VERSION").read_text().strip()
-    require(version == "2.2.3", f"unexpected VERSION: {version}")
+    require(version == "2.2.4", f"unexpected VERSION: {version}")
 
     config = yaml.safe_load((root / "config.yaml").read_text())
     require(config["portable_version"] == version, "VERSION and config portable_version differ")
@@ -103,11 +103,15 @@ def main() -> int:
         raise AssertionError(f"Info.plist is not a valid plist: {exc}") from exc
     require(plist.get("CFBundleShortVersionString") == version,
             "Info.plist CFBundleShortVersionString must match VERSION")
-    require(plist.get("CFBundleVersion") == "223",
-            "Info.plist CFBundleVersion must be 223")
+    require(plist.get("CFBundleVersion") == "224",
+            "Info.plist CFBundleVersion must be 224")
     require(config["usage_tracking"]["mode"] == "opt_in", "usage tracking must be opt-in")
     require(list(config["roles"].keys()) == EXPECTED_ROLES, "config role set/order changed")
     require(config["limits"]["sol_min_failed_attempts"] == 2, "Sol threshold must default to 2")
+    require(config["limits"]["strict_openai_role_binding"] is True,
+            "OpenAI role bindings must be strict")
+    require(config["limits"]["block_sol_for_implementation"] is True,
+            "Sol must be blocked for implementation by default")
     for role in ("investigate", "quick_review", "independent_review"):
         require(config["roles"][role]["access"] == "read-only", f"{role} must be read-only")
         require(config["roles"][role]["resolve_at_runtime"] is True, f"{role} must resolve at runtime")

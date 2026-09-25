@@ -1,5 +1,5 @@
 schema_version: 2
-portable_version: "2.2.3"
+portable_version: "2.2.4"
 default_mode: "auto"
 
 usage_tracking:
@@ -67,6 +67,8 @@ roles:
 
 limits:
   sol_min_failed_attempts: 2
+  strict_openai_role_binding: true
+  block_sol_for_implementation: true
   external_calls_per_phase: 1
   parallel_writers_per_file_set: 1
   independent_review_by_default: false

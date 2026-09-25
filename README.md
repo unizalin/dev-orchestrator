@@ -12,6 +12,8 @@ Portable Dev Orchestrator 是一套把「需求釐清、程式實作、測試、
 - **Astra**：大型、高風險、架構性或模糊需求的 SPEC／architecture 角色。
 - **Claude**：高風險或明確要求時的獨立唯讀 reviewer，不會每次都呼叫。
 
+Codex 的全域預設模型在 `~/.codex/config.toml` 設為 `gpt-5.6-luna`。`implement` 與 `quick_implement` 啟用 strict model binding：若目前模型選擇器不是 Luna，Skill 會先停下並要求切換，不會為一般實作默默消耗 Sol；只有明確 `直接 Sol High` 或達到 escalation gate 才會使用 Sol。
+
 ## 完整流程
 
 ```text
@@ -54,7 +56,7 @@ ACCEPTED / NEEDS ITERATION
 
 在 Codex CLI 或 Codex Desktop 可直接描述開發工作，或明確輸入 `$dev-orchestrator`。完整實作任務結束時，Codex 會輸出 DEV HANDOFF 與可貼回 ChatGPT 的 RETURN 區塊。
 
-## macOS 選單列 App（2.2.3）
+## macOS 選單列 App（2.2.4）
 
 若要在 macOS 上快速查看本機已追蹤的用量，可執行：
 

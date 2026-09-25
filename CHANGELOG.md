@@ -2,6 +2,12 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.2.4 — 2026-09-25
+
+- 將 Codex 預設模型切換為 Luna，避免 Plus 一般實作工作默默使用 Sol。
+- `implement` 與 `quick_implement` 嚴格遵守 config 綁定；Sol 只在明確 override 或 escalation 時使用。
+- 新增 strict OpenAI role binding 與 Sol implementation guard。
+
 ## 2.2.3 — 2026-09-25
 
 - 將選單列入口改為原生 macOS status item，點擊後直接開啟用量面板。
