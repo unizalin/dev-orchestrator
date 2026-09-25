@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-from pathlib import Path
 import sys
+
+# The helper runs from a signed app bundle. Never create mutable bytecode next
+# to the embedded Python sources after code signing.
+sys.dont_write_bytecode = True
+
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

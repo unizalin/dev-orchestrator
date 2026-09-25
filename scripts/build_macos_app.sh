@@ -50,12 +50,12 @@ trap 'rm -rf "$staging_root"' EXIT
 staged_app="$staging_root/DevOrchestratorBar.app"
 contents="$staged_app/Contents"
 usage_cli="$contents/Resources/UsageCLI"
-mkdir -p "$contents/MacOS" "$usage_cli"
+mkdir -p "$contents/MacOS" "$usage_cli/dev_orchestrator_usage"
 
 cp "$binary_path" "$contents/MacOS/DevOrchestratorBar"
 cp "$info_plist" "$contents/Info.plist"
 cp "$usage_wrapper" "$usage_cli/dev-orchestrator-usage"
-cp -R "$usage_module" "$usage_cli/dev_orchestrator_usage"
+find "$usage_module" -type f -name '*.py' -exec cp {} "$usage_cli/dev_orchestrator_usage/" \;
 chmod 755 "$contents/MacOS/DevOrchestratorBar" "$usage_cli/dev-orchestrator-usage"
 
 mkdir -p "$dist_root"

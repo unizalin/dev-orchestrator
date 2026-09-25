@@ -78,6 +78,16 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertIn('codesign --force --deep --sign - "$app_path"', script)
         self.assertIn('codesign --verify --deep --strict "$app_path"', script)
 
+    def test_build_script_excludes_python_bytecode_from_bundle(self):
+        """Only source modules belong in a signed app; caches must stay out."""
+        script = "\n".join(self._executable_lines(BUILD_SCRIPT))
+
+        self.assertIn(
+            "find \"$usage_module\" -type f -name '*.py' -exec cp {} \"$usage_cli/dev_orchestrator_usage/\" \\;",
+            script,
+        )
+        self.assertNotIn('cp -R "$usage_module"', script)
+
     def test_build_script_builds_before_querying_binary_path(self):
         """A fresh Swift package needs a real build before --show-bin-path."""
         lines = self._executable_lines(BUILD_SCRIPT)
@@ -126,7 +136,10 @@ class MacOSPackagingTests(unittest.TestCase):
         copy_binary = self._line_index(lines, r'^cp "\$binary_path" "\$contents/MacOS/DevOrchestratorBar"$')
         copy_plist = self._line_index(lines, r'^cp "\$info_plist" "\$contents/Info\.plist"$')
         copy_wrapper = self._line_index(lines, r'^cp "\$usage_wrapper" "\$usage_cli/dev-orchestrator-usage"$')
-        copy_module = self._line_index(lines, r'^cp -R "\$usage_module" "\$usage_cli/dev_orchestrator_usage"$')
+        copy_module = self._line_index(
+            lines,
+            r"^find \"\$usage_module\" -type f -name '\*\.py' -exec cp \{\} \"\$usage_cli/dev_orchestrator_usage/\" \\;$",
+        )
         chmod = self._line_index(lines, r'^chmod 755 "\$contents/MacOS/DevOrchestratorBar"')
         move = self._line_index(lines, r'^mv "\$staged_app" "\$app_path"$')
         sign = self._line_index(lines, r'^codesign --force --deep --sign - "\$app_path"$')

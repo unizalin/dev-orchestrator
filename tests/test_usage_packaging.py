@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import unittest
@@ -15,6 +16,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class UsagePackagingTests(unittest.TestCase):
+    def test_usage_wrapper_does_not_write_bytecode(self):
+        """The embedded helper must remain code-signature safe after execution."""
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts"
+            package = scripts / "dev_orchestrator_usage"
+            package.mkdir(parents=True)
+            wrapper = scripts / "dev-orchestrator-usage"
+            shutil.copy2(ROOT / "scripts/dev-orchestrator-usage", wrapper)
+            wrapper.chmod(wrapper.stat().st_mode | 0o111)
+            for source in (ROOT / "scripts/dev_orchestrator_usage").glob("*.py"):
+                shutil.copy2(source, package / source.name)
+
+            result = subprocess.run(
+                [str(wrapper), "--help"],
+                cwd=root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(list(package.rglob("*.pyc")))
+            self.assertFalse(list(package.rglob("*.pyo")))
+            self.assertFalse(list(package.rglob("__pycache__")))
+
     def test_codex_install_contains_usage_cli_and_package(self):
         with TemporaryDirectory() as tmp:
             env = {**os.environ, "CODEX_HOME": tmp}
