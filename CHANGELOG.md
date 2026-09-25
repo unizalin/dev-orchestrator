@@ -2,6 +2,11 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.2.2 — 2026-09-25
+
+- 為選單列圖示補上原生 hover 提示，滑過去會顯示「追蹤用量」與目前五小時總量。
+- 保留 VoiceOver 無障礙標籤與原有選單列點擊行為。
+
 ## 2.2.1 — 2026-09-25
 
 - 修正 App 已執行但使用者看不到介面的問題：啟動時直接顯示用量視窗。

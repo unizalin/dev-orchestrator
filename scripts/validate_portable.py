@@ -92,7 +92,7 @@ def main() -> int:
     require(not missing, f"missing required files: {missing}")
 
     version = (root / "VERSION").read_text().strip()
-    require(version == "2.2.1", f"unexpected VERSION: {version}")
+    require(version == "2.2.2", f"unexpected VERSION: {version}")
 
     config = yaml.safe_load((root / "config.yaml").read_text())
     require(config["portable_version"] == version, "VERSION and config portable_version differ")
@@ -103,8 +103,8 @@ def main() -> int:
         raise AssertionError(f"Info.plist is not a valid plist: {exc}") from exc
     require(plist.get("CFBundleShortVersionString") == version,
             "Info.plist CFBundleShortVersionString must match VERSION")
-    require(plist.get("CFBundleVersion") == "221",
-            "Info.plist CFBundleVersion must be 221")
+    require(plist.get("CFBundleVersion") == "222",
+            "Info.plist CFBundleVersion must be 222")
     require(config["usage_tracking"]["mode"] == "opt_in", "usage tracking must be opt-in")
     require(list(config["roles"].keys()) == EXPECTED_ROLES, "config role set/order changed")
     require(config["limits"]["sol_min_failed_attempts"] == 2, "Sol threshold must default to 2")

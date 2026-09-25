@@ -54,7 +54,7 @@ ACCEPTED / NEEDS ITERATION
 
 在 Codex CLI 或 Codex Desktop 可直接描述開發工作，或明確輸入 `$dev-orchestrator`。完整實作任務結束時，Codex 會輸出 DEV HANDOFF 與可貼回 ChatGPT 的 RETURN 區塊。
 
-## macOS 選單列 App（2.2.1）
+## macOS 選單列 App（2.2.2）
 
 若要在 macOS 上快速查看本機已追蹤的用量，可執行：
 
@@ -62,7 +62,7 @@ ACCEPTED / NEEDS ITERATION
 ./scripts/install_macos_app.sh
 ```
 
-腳本會建立 release app、放入匹配版本的 usage helper，並安裝到 `~/Applications/DevOrchestratorBar.app`（可用 `DEV_ORCHESTRATOR_APP_DIR` 指定其他使用者 Applications 目錄）。啟動後會直接打開「Dev Orchestrator 用量」視窗，右上角選單列也會保留快速入口；這是 `LSUIElement` 選單列 App，因此不會在 Dock 顯示一般應用程式圖示。
+腳本會建立 release app、放入匹配版本的 usage helper，並安裝到 `~/Applications/DevOrchestratorBar.app`（可用 `DEV_ORCHESTRATOR_APP_DIR` 指定其他使用者 Applications 目錄）。啟動後會直接打開「Dev Orchestrator 用量」視窗，右上角選單列也會保留快速入口；滑過選單列圖示會顯示目前用途與五小時總量。這是 `LSUIElement` 選單列 App，因此不會在 Dock 顯示一般應用程式圖示。
 
 選單列標題顯示目前所有專案的五小時追蹤總量。彈出視窗可在「目前專案」與「所有專案」間切換，也可選擇「所有帳號」或單一帳號。這些帳號／專案篩選只套用於本機 ledger 報表：不會切換 Codex、Gemini 或其他 provider 的登入帳號、session 或認證狀態；同一專案的不同帳號資料可合計，也可依帳號篩選。目前專案是最近一次成功追蹤事件所屬的最新專案，而不是檔案系統中任意猜測的資料夾。若沒有目前專案或尚未有事件，介面會顯示清楚的 setup／empty state，提示先啟用追蹤並完成一個任務。
 

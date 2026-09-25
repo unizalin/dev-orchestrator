@@ -92,9 +92,11 @@ public struct DevOrchestratorBarApp: App {
                 Image(systemName: "chart.bar.xaxis")
             }
             .accessibilityLabel(presentation.accessibilityLabel)
+            .help(presentation.accessibilityLabel)
         } else {
             Image(systemName: "chart.bar.xaxis")
                 .accessibilityLabel(presentation.accessibilityLabel)
+                .help(presentation.accessibilityLabel)
         }
     }
 }
