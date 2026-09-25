@@ -45,6 +45,18 @@ public struct DevOrchestratorBarApp: App {
     public init() {}
 
     public var body: some Scene {
+        Window("Dev Orchestrator 用量", id: "usage-dashboard") {
+            UsagePopoverView(
+                model: model,
+                launchAtLogin: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                ),
+                launchAtLoginError: launchAtLogin.errorMessage
+            )
+        }
+        .defaultSize(width: 392, height: 620)
+
         MenuBarExtra {
             UsagePopoverView(
                 model: model,

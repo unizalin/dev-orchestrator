@@ -2,6 +2,12 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.2.1 — 2026-09-25
+
+- 修正 App 已執行但使用者看不到介面的問題：啟動時直接顯示用量視窗。
+- 保留原有選單列入口、30 秒本機刷新與登入時啟動功能。
+- 新增可見視窗的 packaging regression test。
+
 ## 2.2.0 — 2026-09-24
 
 - 新增 macOS 選單列 App，可直接查看已追蹤任務的五小時用量。

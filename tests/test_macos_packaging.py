@@ -43,8 +43,8 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertEqual(manifest["CFBundleIdentifier"], "com.unizalin.DevOrchestratorBar")
         self.assertEqual(manifest["CFBundleName"], "Dev Orchestrator")
         self.assertEqual(manifest["CFBundlePackageType"], "APPL")
-        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.0")
-        self.assertEqual(manifest["CFBundleVersion"], "220")
+        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.1")
+        self.assertEqual(manifest["CFBundleVersion"], "221")
         self.assertEqual(manifest["LSMinimumSystemVersion"], "13.0")
         self.assertIs(manifest["LSUIElement"], True)
 
@@ -56,7 +56,7 @@ class MacOSPackagingTests(unittest.TestCase):
             plist_path = copy_root / "macos/DevOrchestratorBar/Resources/Info.plist"
             plist = plistlib.loads(plist_path.read_bytes())
             plist["CFBundleShortVersionString"] = "9.9.9"
-            plist["DecoyVersion"] = "2.2.0"
+            plist["DecoyVersion"] = "2.2.1"
             plist_path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML))
             result = subprocess.run(
                 [os.environ.get("PYTHON", "python3"), "scripts/validate_portable.py", str(copy_root)],
@@ -120,6 +120,15 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertNotIn(".task(id: model.autoRefresh)", popover_source)
         self.assertIn(".task {", label_source)
         self.assertIn(".task(id: model.autoRefresh)", label_source)
+
+    def test_app_exposes_a_visible_dashboard_window_as_well_as_menu_bar_extra(self):
+        """Launching the app must never leave users with an invisible UI."""
+        source = APP_SOURCE.read_text()
+
+        self.assertIn('Window("Dev Orchestrator 用量", id: "usage-dashboard")', source)
+        self.assertIn("MenuBarExtra {", source)
+        self.assertGreaterEqual(source.count("UsagePopoverView("), 2)
+        self.assertIn('.defaultSize(width: 392, height: 620)', source)
 
     def test_build_script_validates_exact_app_destination_before_replacement(self):
         lines = self._executable_lines(BUILD_SCRIPT)
