@@ -43,8 +43,8 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertEqual(manifest["CFBundleIdentifier"], "com.unizalin.DevOrchestratorBar")
         self.assertEqual(manifest["CFBundleName"], "Dev Orchestrator")
         self.assertEqual(manifest["CFBundlePackageType"], "APPL")
-        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.2")
-        self.assertEqual(manifest["CFBundleVersion"], "222")
+        self.assertEqual(manifest["CFBundleShortVersionString"], "2.2.3")
+        self.assertEqual(manifest["CFBundleVersion"], "223")
         self.assertEqual(manifest["LSMinimumSystemVersion"], "13.0")
         self.assertIs(manifest["LSUIElement"], True)
 
@@ -56,7 +56,7 @@ class MacOSPackagingTests(unittest.TestCase):
             plist_path = copy_root / "macos/DevOrchestratorBar/Resources/Info.plist"
             plist = plistlib.loads(plist_path.read_bytes())
             plist["CFBundleShortVersionString"] = "9.9.9"
-            plist["DecoyVersion"] = "2.2.2"
+            plist["DecoyVersion"] = "2.2.3"
             plist_path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML))
             result = subprocess.run(
                 [os.environ.get("PYTHON", "python3"), "scripts/validate_portable.py", str(copy_root)],
@@ -102,39 +102,38 @@ class MacOSPackagingTests(unittest.TestCase):
         )
         self.assertLess(build, show_bin_path)
 
-    def test_refresh_lifecycle_belongs_to_persistent_menu_bar_label(self):
-        """Guard the app-lifetime refresh owner without relying on SwiftUI introspection.
-
-        MenuBarExtra content is tied to popover visibility, while its label stays
-        alive in the menu bar. This source contract keeps refresh tasks out of
-        the popover and on the persistent label so closing the popover cannot
-        cancel the app's refresh loop.
-        """
+    def test_refresh_lifecycle_belongs_to_persistent_status_item_controller(self):
+        """The app-lifetime refresh loop must not depend on panel visibility."""
         source = APP_SOURCE.read_text()
-        popover_start = source.index("UsagePopoverView(")
-        label_start = source.index("} label: {", popover_start)
-        popover_source = source[popover_start:label_start]
-        label_source = source[label_start:]
 
-        self.assertNotIn(".task {", popover_source)
-        self.assertNotIn(".task(id: model.autoRefresh)", popover_source)
-        self.assertIn(".task {", label_source)
-        self.assertIn(".task(id: model.autoRefresh)", label_source)
+        self.assertIn("refreshTask", source)
+        self.assertIn("model.autoRefresh", source)
+        self.assertIn("Task.sleep(for: .seconds(30))", source)
 
     def test_app_exposes_a_visible_dashboard_window_as_well_as_menu_bar_extra(self):
         """Launching the app must never leave users with an invisible UI."""
         source = APP_SOURCE.read_text()
 
         self.assertIn('Window("Dev Orchestrator 用量", id: "usage-dashboard")', source)
-        self.assertIn("MenuBarExtra {", source)
-        self.assertGreaterEqual(source.count("UsagePopoverView("), 2)
+        self.assertIn("NSStatusBar.system.statusItem", source)
+        self.assertIn("panel.contentViewController = NSHostingController(rootView: usageView())", source)
         self.assertIn('.defaultSize(width: 392, height: 620)', source)
 
     def test_menu_bar_label_exposes_a_hover_help_text(self):
         """The icon needs a native hover hint, not only a VoiceOver label."""
         source = APP_SOURCE.read_text()
 
-        self.assertGreaterEqual(source.count(".help(presentation.accessibilityLabel)"), 2)
+        self.assertIn("button.toolTip =", source)
+        self.assertIn("button.setAccessibilityLabel", source)
+
+    def test_status_item_click_uses_a_native_popover_action(self):
+        """The status icon must have a direct click path to the usage panel."""
+        source = APP_SOURCE.read_text()
+
+        self.assertIn("NSStatusBar.system.statusItem", source)
+        self.assertIn("button.action = #selector(togglePopover(_:))", source)
+        self.assertIn("togglePopover", source)
+        self.assertNotIn("MenuBarExtra {", source)
 
     def test_build_script_validates_exact_app_destination_before_replacement(self):
         lines = self._executable_lines(BUILD_SCRIPT)

@@ -2,6 +2,12 @@
 
 All notable changes to Portable Dev Orchestrator are documented here.
 
+## 2.2.3 — 2026-09-25
+
+- 將選單列入口改為原生 macOS status item，點擊後直接開啟用量面板。
+- 保留啟動時的用量視窗、hover 提示、30 秒本機刷新與登入時啟動功能。
+- 修正部分 macOS 版本上 SwiftUI `MenuBarExtra` 點擊後沒有顯示內容的問題。
+
 ## 2.2.2 — 2026-09-25
 
 - 為選單列圖示補上原生 hover 提示，滑過去會顯示「追蹤用量」與目前五小時總量。

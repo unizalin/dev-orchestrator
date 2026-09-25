@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import Combine
 import SwiftUI
 import UsageClient
 import UsageUI
@@ -37,66 +39,105 @@ public enum AppDependencies {
     }
 }
 
+@MainActor
+public final class StatusItemController: NSObject, NSApplicationDelegate {
+    public let model = UsageViewModel(loader: AppDependencies.usageClient())
+    public let launchAtLogin = LaunchAtLogin()
+
+    private var statusItem: NSStatusItem?
+    private var popover: NSPopover?
+    private var refreshTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
+
+    public func applicationDidFinishLaunching(_ notification: Notification) {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = item
+
+        if let button = item.button {
+            button.image = NSImage(
+                systemSymbolName: "chart.bar.xaxis",
+                accessibilityDescription: "追蹤用量"
+            )
+            button.imagePosition = .imageLeading
+            button.target = self
+            button.action = #selector(togglePopover(_:))
+            button.toolTip = "開啟追蹤用量"
+            button.setAccessibilityLabel("開啟追蹤用量")
+        }
+
+        let panel = NSPopover()
+        panel.behavior = .transient
+        panel.animates = true
+        panel.contentSize = NSSize(width: 392, height: 620)
+        panel.contentViewController = NSHostingController(rootView: usageView())
+        popover = panel
+
+        cancellables.insert(
+            model.$snapshot.sink { [weak self] _ in
+                self?.updateStatusItem()
+            }
+        )
+
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                if self.model.autoRefresh {
+                    await self.model.refresh()
+                }
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        Task { await model.refresh() }
+    }
+
+    public func applicationWillTerminate(_ notification: Notification) {
+        refreshTask?.cancel()
+        cancellables.removeAll()
+    }
+
+    public func usageView() -> UsagePopoverView {
+        UsagePopoverView(
+            model: model,
+            launchAtLogin: Binding(
+                get: { self.launchAtLogin.isEnabled },
+                set: { self.launchAtLogin.setEnabled($0) }
+            ),
+            launchAtLoginError: launchAtLogin.errorMessage
+        )
+    }
+
+    private func updateStatusItem() {
+        guard let button = statusItem?.button else { return }
+        let title = model.menuBarTitle
+        button.title = title ?? ""
+        button.imagePosition = title == nil ? .imageOnly : .imageLeading
+        let label = MenuBarLabelPresentation(title: title).accessibilityLabel
+        button.toolTip = label
+        button.setAccessibilityLabel(label)
+    }
+
+    @objc private func togglePopover(_ sender: Any?) {
+        guard let button = statusItem?.button, let popover else { return }
+        if popover.isShown {
+            popover.performClose(sender)
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+}
+
 @main
 public struct DevOrchestratorBarApp: App {
-    @StateObject private var model = UsageViewModel(loader: AppDependencies.usageClient())
-    @StateObject private var launchAtLogin = LaunchAtLogin()
+    @NSApplicationDelegateAdaptor(StatusItemController.self)
+    private var controller
 
     public init() {}
 
     public var body: some Scene {
         Window("Dev Orchestrator 用量", id: "usage-dashboard") {
-            UsagePopoverView(
-                model: model,
-                launchAtLogin: Binding(
-                    get: { launchAtLogin.isEnabled },
-                    set: { launchAtLogin.setEnabled($0) }
-                ),
-                launchAtLoginError: launchAtLogin.errorMessage
-            )
+            controller.usageView()
         }
         .defaultSize(width: 392, height: 620)
-
-        MenuBarExtra {
-            UsagePopoverView(
-                model: model,
-                launchAtLogin: Binding(
-                    get: { launchAtLogin.isEnabled },
-                    set: { launchAtLogin.setEnabled($0) }
-                ),
-                launchAtLoginError: launchAtLogin.errorMessage
-            )
-        } label: {
-            menuBarLabel(model: model)
-                .task {
-                    await model.refresh()
-                }
-                .task(id: model.autoRefresh) {
-                    while model.autoRefresh && !Task.isCancelled {
-                        try? await Task.sleep(for: .seconds(30))
-                        guard !Task.isCancelled else { return }
-                        await model.refresh()
-                    }
-                }
-        }
-        .menuBarExtraStyle(.window)
-    }
-
-    @ViewBuilder
-    private func menuBarLabel(model: UsageViewModel) -> some View {
-        let presentation = MenuBarLabelPresentation(title: model.menuBarTitle)
-        if let title = presentation.title {
-            Label {
-                Text(title)
-            } icon: {
-                Image(systemName: "chart.bar.xaxis")
-            }
-            .accessibilityLabel(presentation.accessibilityLabel)
-            .help(presentation.accessibilityLabel)
-        } else {
-            Image(systemName: "chart.bar.xaxis")
-                .accessibilityLabel(presentation.accessibilityLabel)
-                .help(presentation.accessibilityLabel)
-        }
     }
 }
