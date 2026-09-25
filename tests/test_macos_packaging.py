@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PLIST = ROOT / "macos/DevOrchestratorBar/Resources/Info.plist"
 BUILD_SCRIPT = ROOT / "scripts/build_macos_app.sh"
 INSTALL_SCRIPT = ROOT / "scripts/install_macos_app.sh"
+APP_SOURCE = ROOT / "macos/DevOrchestratorBar/Sources/DevOrchestratorBarApp/DevOrchestratorBarApp.swift"
 
 
 class MacOSPackagingTests(unittest.TestCase):
@@ -90,6 +91,25 @@ class MacOSPackagingTests(unittest.TestCase):
             r'^bin_dir="\$\(swift build --package-path "\$package_root" -c "\$configuration" --show-bin-path\)"$',
         )
         self.assertLess(build, show_bin_path)
+
+    def test_refresh_lifecycle_belongs_to_persistent_menu_bar_label(self):
+        """Guard the app-lifetime refresh owner without relying on SwiftUI introspection.
+
+        MenuBarExtra content is tied to popover visibility, while its label stays
+        alive in the menu bar. This source contract keeps refresh tasks out of
+        the popover and on the persistent label so closing the popover cannot
+        cancel the app's refresh loop.
+        """
+        source = APP_SOURCE.read_text()
+        popover_start = source.index("UsagePopoverView(")
+        label_start = source.index("} label: {", popover_start)
+        popover_source = source[popover_start:label_start]
+        label_source = source[label_start:]
+
+        self.assertNotIn(".task {", popover_source)
+        self.assertNotIn(".task(id: model.autoRefresh)", popover_source)
+        self.assertIn(".task {", label_source)
+        self.assertIn(".task(id: model.autoRefresh)", label_source)
 
     def test_build_script_validates_exact_app_destination_before_replacement(self):
         lines = self._executable_lines(BUILD_SCRIPT)

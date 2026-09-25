@@ -54,18 +54,18 @@ public struct DevOrchestratorBarApp: App {
                 ),
                 launchAtLoginError: launchAtLogin.errorMessage
             )
-            .task {
-                await model.refresh()
-            }
-            .task(id: model.autoRefresh) {
-                while model.autoRefresh && !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(30))
-                    guard !Task.isCancelled else { return }
-                    await model.refresh()
-                }
-            }
         } label: {
             menuBarLabel(model: model)
+                .task {
+                    await model.refresh()
+                }
+                .task(id: model.autoRefresh) {
+                    while model.autoRefresh && !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(30))
+                        guard !Task.isCancelled else { return }
+                        await model.refresh()
+                    }
+                }
         }
         .menuBarExtraStyle(.window)
     }
